@@ -149,7 +149,8 @@
       "src/ui/views/panels/GlobeCompass.vue",
       "src/ui/stores/recording.js",
       "src/ui/styleParameters.js",
-      "src/ui/i18n.js"
+      "src/ui/i18n.js",
+      "src/ui/cyberAccentSettings.js"
     ],
     "external": ["vue", "pinia", "vue-i18n"]
   },
@@ -1124,7 +1125,8 @@
       "src/ui/kit/UiBadge.vue",
       "src/ui/stores/globeActions.js",
       "src/ui/stores/recording.js",
-      "src/ui/i18n.js"
+      "src/ui/i18n.js",
+      "src/ui/cyberAccentSettings.js"
     ],
     "external": ["cesium", "vue", "pinia", "vue-i18n"]
   },
@@ -3100,6 +3102,9 @@
       "src/data/cameraFraming.js",
       "src/data/geoImportPins.js",
       "src/data/geoImportImages.js",
+      "src/app/layers/chesterCountyEms.js",
+      "src/layers/chesterCountyEms/index.js",
+      "src/layers/chesterCountyEms/source.js",
       "src/app/layers/airQuality.js",
       "src/layers/airQuality/index.js",
       "src/layers/airQuality/model.js",
@@ -3184,7 +3189,8 @@
       "src/data/placeBoundaries.js",
       "src/data/placeNames.js",
       "src/data/local_data/us_census_places/files.js",
-      "src/data/local_data/wof_neighborhoods/files.js"
+      "src/data/local_data/wof_neighborhoods/files.js",
+      "src/ui/cyberAccentSettings.js"
     ],
     "external": [
       "hls.js",
@@ -3768,6 +3774,9 @@
       "src/layers/recentImagery/display.js",
       "src/layers/installations/classLabel.js",
       "src/data/cameraFraming.js",
+      "src/app/layers/chesterCountyEms.js",
+      "src/layers/chesterCountyEms/index.js",
+      "src/layers/chesterCountyEms/source.js",
       "src/app/layers/airQuality.js",
       "src/layers/airQuality/index.js",
       "src/layers/airQuality/model.js",
@@ -3995,7 +4004,8 @@
       "src/visualStylePolicy.js",
       "src/ui/rail/fieldValue.js",
       "src/ui/kit/UiSlider.js",
-      "src/ui/i18n.js"
+      "src/ui/i18n.js",
+      "src/ui/cyberAccentSettings.js"
     ],
     "external": ["cesium", "vue", "pinia", "vue-i18n"]
   },

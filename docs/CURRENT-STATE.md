@@ -269,11 +269,14 @@ Display > HUD > Layout includes Cyber, also available through the HUD voice
 action and shared visual state. An explicit first transition into Cyber selects
 FLIR with Ironbow 0.42. An explicit switch back to another HUD layout restores
 the visual preset used before Cyber; restored links and scenes remain
-authoritative. The skin uses shared red/slate panel treatments in map and cockpit,
-with compact 200px collapsed controls and wider expanded panels. Other HUD
-layouts retain their existing presentation.
+authoritative. The skin uses shared purple/slate panel treatments in map and cockpit,
+with compact 200px collapsed controls and wider expanded panels. Display also
+offers a local Cyber accent choice: five preset swatches plus a custom color
+picker. The selection derives the theme's active, bright and surface tones,
+persists in this browser, and is not part of a shared link. Other HUD layouts
+retain their existing presentation.
 Chamfered panel expand/collapse controls use an inset keyboard-focus outline and
-red hover border in both map and cockpit, so clipping does not hide the highlight.
+purple hover border in both map and cockpit, so clipping does not hide the highlight.
 
 Cyber's map-side right rail opens one panel at a time while keeping collapsed
 launchers available. Display, CCTV and Context scroll their contents inside fixed
@@ -5639,6 +5642,7 @@ request viewbox and continues searching without that geographic preference.
 
 - **What it shows.** Events ▸ **S2 GhostMaps** draws the current edition of S2 Underground's KMZ intel products from `github.com/s2underground/GhostMaps`. The products are the Common Intelligence Picture and the 30-day kinetic pull (both on by default), the Border Crisis Map, the Iran Common Intelligence Picture, Iran Kinetic Events, Yemen FLOT, and **Latest Drop**: the newest dated incident file outside those series, `0_Archive`, `Basedata` and `Reference Material`. Each product has a chip in the row. The chip choice is kept in `localStorage` (`gev.ghostmaps.products`) and falls back to the defaults when storage is blocked.
 - **Editions.** `src/layers/ghostMaps/catalog.js` (pure) matches whole repository paths per product. The newest edition wins by the date written in the file name, then by `Export_N`/`vN`. Undated names, such as the fixed 30-day file, are identified by blob sha. Files over 50 MiB are left out (the 62 MB census KMZ, for example). A renamed folder drops the product rather than matching elsewhere.
+- **Event age filter.** The same filter applies to every selected S2 product, including Border Crisis, Iran Picture, Iran Kinetic, Yemen FLOT and Latest Drop. S2 products default to seven days, with row buttons for 1, 3, 7, 14 or 30 days and **All markers**. The choice persists independently of product selection in `localStorage` (`gev.ghostmaps.ageDays`); missing, invalid or blocked storage uses seven days. Only the placemark's `Date of Event` (or `EventDate`/`Date`) determines its age, never report dates, dates in prose or KMZ edition/upload dates. Undated, blank or unparseable event dates and future dates stay visible. ArcGIS `M/D/YYYY` dates and optional AM/PM times, plus ISO dates/timestamps, are supported; values without a zone use UTC and date-only values use midnight UTC. The exact cutoff is included. Events age out every minute and during catalog updates, even without a new file or a successful catalog fetch. Widening the window or choosing All markers restores omitted events from the cached KMZ. Removed entities and selected cards disappear together; surviving pick ids stay stable. Product defaults and the update stream are unchanged.
 - **Updates.** The repository is not ours, so there is no webhook. `server/providers/ghostMaps.js` starts with the first `/api/ghostmaps` request, so an install that never enables the layer never contacts GitHub.
   - It reads the branch head from git's smart-HTTP ref advertisement (`/info/refs?service=git-upload-pack`, about 0.5 KB, outside the REST rate limit) every `GHOSTMAPS_POLL_SECONDS` (15 s by default, 5 s minimum). Failures back off from 15 s to 5 min.
   - Only a new head costs REST calls: one recursive tree and one commit. An optional `GITHUB_TOKEN` raises the REST limit.
@@ -6650,3 +6654,25 @@ the container healthy. Checks time out after 10 seconds, with a 30-second
 startup grace period and three consecutive failures before reporting unhealthy.
 This reports app HTTP availability, not individual provider health, and does not
 configure automatic restarts.
+
+## Chester County incidents — local fork
+
+The Events group includes an off-by-default **Chester County, PA incidents**
+layer. It reads Fire, EMS and Traffic tables from public WebCAD through the
+existing `/api/chester-county-ems` endpoint every 60 seconds while enabled.
+County road-centerline junctions resolve reported intersections; county address
+points resolve numbered addresses. Map labels preserve the source location and
+say approximate intersection/address. Flame, red-cross and siren billboards
+identify fire, EMS and traffic. Unresolved or ambiguous reports stay listed
+without a marker; municipal-center fallback is removed. Successful empty
+snapshots clear reports and failures retain last-good data marked stale.
+All sources load at runtime into memory, with bounded county GIS lookups and
+no incident archive. The stable layer id and enabled-only share token `8` are
+unchanged. See `docs/CHESTER-COUNTY-EMS.md` for matching limits and source terms.
+
+County incident health separates successful unmatched locations from GIS failures.
+Coverage counts expose mapped, unresolved and lookup-error totals; only actual
+lookup failures degrade a fresh feed. WebCAD retries transient failures once.
+County Common Place provides approximate named-place positions, and a documented
+Tredyffrin-only junction alias resolves Valley Forge/Yellow Springs using the
+GIS Valley Creek road name. Original reports and approximate labels are retained.
