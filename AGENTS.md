@@ -137,23 +137,38 @@ evidence must come from local runs in the PR description.
 
 ## Fork maintenance workflow
 
+- Fork/push remote: `origin` = `https://github.com/dylanmaniatakes/gods-eye-view.git`.
+- Read-only source remote: `upstream` = `https://github.com/bilawalsidhu/gods-eye-view.git`.
+- `main` tracks `origin/main`. Feature branches track their matching `origin/<branch>`
+  after publication; unpublished branches have no tracking branch.
+- Repository settings use `remote.pushDefault=origin`, `push.default=current`,
+  `pull.ff=only`, and `fetch.prune=true`.
+- Because `main` preserves this fork-local file, future upstream updates can diverge.
+  Merge upstream into main; `merge --ff-only upstream/main` cannot always work.
+
 ```bash
-# Sync with upstream
-git fetch upstream
-git checkout main && git merge --ff-only upstream/main
+# Sync upstream into the fork's main checkout without changing feature worktrees.
+cd /Users/ticnitsi/gods-eye-view-main
+git fetch --prune upstream
+git pull --ff-only origin main
+git merge --no-edit upstream/main
+git push origin main
 
-# Start work for an eventual PR
-git checkout -b feat/<slug> upstream/main
-
-# Personal / experimental work (not for upstream)
-git checkout -b tinkering/<slug> main
+# Start one independent feature/PR from the latest upstream code.
+git worktree add -b codex/<slug> /Users/ticnitsi/gods-eye-view-<slug> upstream/main
+cd /Users/ticnitsi/gods-eye-view-<slug>
+# Implement and test, then publish the feature branch to the fork.
+git push -u origin HEAD
 ```
 
-- Keep `main` = upstream + only fork-local files (like this one) so
-  `--ff-only` syncs keep working; do real work on branches.
-- Upstream also ships `.agents/skills/community-pr` with the maintainer PR
-  review workflow, and `docs/MAINTAINER_WORKFLOW.md` describes how maintainers
-  review and merge — useful reading before submitting.
+VS Code Sync operates on the selected repository/branch and its tracking branch.
+It does not import upstream into all feature branches. Use the main checkout for
+fork sync; choose a feature checkout to edit/push that feature. For an existing
+unpublished feature, rebase onto `upstream/main` before publication. Coordinate
+history changes before rebasing a branch that is already published.
+
+Fork-local context stays on `main`; always base upstream PRs on `upstream/main`
+so this file and unrelated features do not appear in their diffs.
 
 ## Ideas backlog
 
