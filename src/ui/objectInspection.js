@@ -6,6 +6,7 @@ import * as Cesium from 'cesium';
 import {
   getContextStore,
   getSelectedEntityContext,
+  isContextRecordActive,
 } from '../data/contextStore.js';
 import {
   findPickOwner,
@@ -38,7 +39,10 @@ export function inspectionFields(properties) {
 /** Read one selection from the owning layer; never scan all live records each frame. */
 export function readInspection(manager, target) {
   if (!target || !manager) return null;
-  if (target.layerId !== 'map-object' && !manager.isEnabled?.(target.layerId))
+  if (
+    target.layerId !== 'map-object' &&
+    !isContextRecordActive(target, manager)
+  )
     return null;
   const layer =
     manager.layers.get(target.layerId)?.module || (target.entity ? {} : null);

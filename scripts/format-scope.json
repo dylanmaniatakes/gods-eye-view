@@ -1264,5 +1264,8 @@
   "src/voice/imageryActions.test.mjs",
   "src/voice/osmActions.test.mjs",
   "src/voice/realtimeProtocol.test.mjs",
-  "docs/PERSONAL-BUILD.md"
+  "docs/PERSONAL-BUILD.md",
+  "src/app/layers/cameraCategories.test.mjs",
+  "src/data/cctvViewThinning.test.mjs",
+  "scripts/qa-penndot-categories.mjs"
 ]

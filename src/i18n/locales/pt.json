@@ -3182,5 +3182,6 @@
   "The list includes matching vessels hidden by decluttering. Select a vessel to inspect it.": "A lista inclui embarcações correspondentes ocultas pela redução de densidade. Selecione uma para inspecionar.",
   "No matching vessels": "Nenhuma embarcação correspondente",
   "Map popups": "Pop-ups do mapa",
-  "Show map popups for S2 and Chester County incidents": "Mostrar pop-ups do mapa para S2 e ocorrências do condado de Chester"
+  "Show map popups for S2 and Chester County incidents": "Mostrar pop-ups do mapa para S2 e ocorrências do condado de Chester",
+  "PennDOT Traffic Cams": "Câmeras de trânsito PennDOT"
 }

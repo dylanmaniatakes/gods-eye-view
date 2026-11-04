@@ -1827,7 +1827,10 @@ export async function controlCctv(dataManager, args = {}, styleManager = null) {
       error: 'Enable or disable CCTV through set_layer_visibility',
     };
   }
-  if (!dataManager.isEnabled('cctv')) {
+  if (
+    !dataManager.isEnabled('cctv') &&
+    !dataManager.isEnabled('penndot-traffic-cams')
+  ) {
     return {
       ok: false,
       action: 'control_cctv',

@@ -3407,5 +3407,6 @@
   "The list includes matching vessels hidden by decluttering. Select a vessel to inspect it.": "تتضمن القائمة السفن المطابقة المخفية لتخفيف الازدحام. حدد سفينة لفحصها.",
   "No matching vessels": "لا توجد سفن مطابقة",
   "Map popups": "النوافذ المنبثقة على الخريطة",
-  "Show map popups for S2 and Chester County incidents": "إظهار النوافذ المنبثقة على الخريطة لتقارير S2 وحوادث مقاطعة تشيستر"
+  "Show map popups for S2 and Chester County incidents": "إظهار النوافذ المنبثقة على الخريطة لتقارير S2 وحوادث مقاطعة تشيستر",
+  "PennDOT Traffic Cams": "كاميرات المرور في PennDOT"
 }

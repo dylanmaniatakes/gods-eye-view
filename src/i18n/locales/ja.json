@@ -3032,5 +3032,6 @@
   "The list includes matching vessels hidden by decluttering. Select a vessel to inspect it.": "一覧には密度調整で非表示になった一致する船舶も含まれます。船舶を選択して詳細を確認できます。",
   "No matching vessels": "一致する船舶はありません",
   "Map popups": "地図のポップアップ",
-  "Show map popups for S2 and Chester County incidents": "S2とチェスター郡の事案の地図ポップアップを表示"
+  "Show map popups for S2 and Chester County incidents": "S2とチェスター郡の事案の地図ポップアップを表示",
+  "PennDOT Traffic Cams": "PennDOT交通カメラ"
 }

@@ -3032,5 +3032,6 @@
   "The list includes matching vessels hidden by decluttering. Select a vessel to inspect it.": "列表包含因密度调整而隐藏的匹配船舶。选择船舶可查看详情。",
   "No matching vessels": "没有匹配的船舶",
   "Map popups": "地图弹窗",
-  "Show map popups for S2 and Chester County incidents": "显示 S2 和切斯特县事件的地图弹窗"
+  "Show map popups for S2 and Chester County incidents": "显示 S2 和切斯特县事件的地图弹窗",
+  "PennDOT Traffic Cams": "PennDOT 交通摄像头"
 }

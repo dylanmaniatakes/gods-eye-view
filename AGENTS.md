@@ -14,6 +14,22 @@ public CCTV, weather, and more — with hands-free voice control via a realtime
 AI agent. All data sources are public; scraping against terms of service or
 paywalled data is against project ground rules.
 
+## Personal build integration — 2026-11-03
+
+The personal build merges the fork's `main` at `b72159ef` with today's local
+features. See `docs/PERSONAL-BUILD.md` for the retained changes. The user chose
+this tested fork baseline for this publication; the newer upstream typed-chat,
+FAA-airspace and Houston-camera batch is deferred. Node 26.13.0 is installed and
+supported, and `gh` is available and authenticated; the setup gaps below describe
+the earlier snapshot.
+
+Treat `origin/main` as the published token baseline for this fork. Its personal
+Chester County layer uses token `8`, and PennDOT Traffic Cams uses `9`. Newer
+upstream assigns `8` to FAA airspace, so a future upstream merge needs an explicit
+share-link migration plan rather than silently reassigning published fork tokens.
+Upstream PR branches must use upstream's ledger and stay separate from the full
+personal-build branch.
+
 ## Fork state snapshot (2026-11-02)
 
 - Upstream: `https://github.com/bilawalsidhu/gods-eye-view.git` (as `upstream`)

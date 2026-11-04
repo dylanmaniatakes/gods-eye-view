@@ -3257,5 +3257,6 @@
   "The list includes matching vessels hidden by decluttering. Select a vessel to inspect it.": "Список містить відповідні судна, приховані для зменшення щільності. Виберіть судно для перегляду.",
   "No matching vessels": "Немає відповідних суден",
   "Map popups": "Спливні вікна карти",
-  "Show map popups for S2 and Chester County incidents": "Показувати спливні вікна карти для S2 та подій округу Честер"
+  "Show map popups for S2 and Chester County incidents": "Показувати спливні вікна карти для S2 та подій округу Честер",
+  "PennDOT Traffic Cams": "Дорожні камери PennDOT"
 }

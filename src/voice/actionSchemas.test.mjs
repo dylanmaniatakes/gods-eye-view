@@ -53,7 +53,7 @@ test('the complete Realtime tool payload pins the manifest-generated layer relea
     // The Operator HUD layout leaves set_hud's layout enum.
     // The layer alias hint leaves out aliases the layer id already spells.
     // Voice geometry and OSM Places combine with the fork's Chester County tools.
-    '020afbf9725d6c21b992e6548863f26e54e60b51f81ec869d70566dd0064450c',
+    'fdce261c1204d5bff6d86d5ccc5b4ee30b04f515959727f921ea94a0e3520b48',
   );
 });
 

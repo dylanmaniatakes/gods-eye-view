@@ -3107,5 +3107,6 @@
   "The list includes matching vessels hidden by decluttering. Select a vessel to inspect it.": "Die Liste enthält passende Schiffe, deren Symbole ausgeblendet sind. Wählen Sie ein Schiff, um es zu untersuchen.",
   "No matching vessels": "Keine passenden Schiffe",
   "Map popups": "Karten-Popups",
-  "Show map popups for S2 and Chester County incidents": "Karten-Popups für S2 und Vorfälle in Chester County anzeigen"
+  "Show map popups for S2 and Chester County incidents": "Karten-Popups für S2 und Vorfälle in Chester County anzeigen",
+  "PennDOT Traffic Cams": "PennDOT-Verkehrskameras"
 }

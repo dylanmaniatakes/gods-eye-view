@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import * as Cesium from 'cesium';
 import {
   getContextStore,
+  getSelectedEntityContext,
   selectTrackedSubjectContext,
 } from '../data/contextStore.js';
 import {
@@ -187,4 +188,49 @@ test('dragging over a selected object cannot open or focus its inspector', (t) =
   s.flush();
   assert.equal(s.reveals(), 0);
   assert.equal(s.focused.length, 0);
+});
+
+test('PennDOT-only selection remains inspectable through the shared camera viewer', () => {
+  const context = getContextStore();
+  context.entities.clear();
+  context.selectedEntityId = null;
+  const camera = {
+    id: '511pa-qa',
+    name: 'SYNTHETIC PENNDOT CAMERA',
+    lat: 40,
+    lon: -75,
+  };
+  const sharedViewer = {
+    name: 'Cameras',
+    getUIState: () => ({ activeCamera: camera }),
+  };
+  const manager = {
+    layers: new Map([
+      ['cctv', { module: sharedViewer }],
+      ['penndot-traffic-cams', { module: { cameraViewer: sharedViewer } }],
+    ]),
+    isEnabled: (id) => id === 'penndot-traffic-cams',
+  };
+  selectTrackedSubjectContext({
+    id: camera.id,
+    layerId: 'cctv',
+    label: camera.name,
+  });
+  assert.equal(
+    getSelectedEntityContext({ dataManager: manager }).id,
+    camera.id,
+    'shared selection remains available to voice/context callers',
+  );
+  const target = { layerId: 'cctv', id: camera.id };
+  const model = readInspection(manager, target);
+  assert.equal(model.id, camera.id);
+  assert.equal(model.label, camera.name);
+  assert.equal(model.latitude, camera.lat);
+  manager.isEnabled = () => false;
+  assert.equal(
+    readInspection(manager, target),
+    null,
+    'both camera categories off dismiss inspection',
+  );
+  assert.equal(getSelectedEntityContext({ dataManager: manager }), null);
 });

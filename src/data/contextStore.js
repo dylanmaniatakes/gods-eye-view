@@ -194,7 +194,13 @@ export function isContextRecordActive(record, dataManager = null) {
   if (!record) return false;
   if (record.entity?.show === false) return false;
   if (record.dataSource && record.dataSource.show === false) return false;
-  if (dataManager && record.layerId && !dataManager.isEnabled(record.layerId))
-    return false;
+  if (dataManager && record.layerId) {
+    // The two camera categories share the same viewer and selected context.
+    const enabled =
+      dataManager.isEnabled?.(record.layerId) ||
+      (record.layerId === 'cctv' &&
+        dataManager.isEnabled?.('penndot-traffic-cams'));
+    if (!enabled) return false;
+  }
   return true;
 }

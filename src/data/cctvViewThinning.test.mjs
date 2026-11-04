@@ -193,6 +193,46 @@ test('a disabled layer skips the view pass', () => {
   assert.deepEqual(_viewRecordIdsForTest(), []);
 });
 
+test('PennDOT visibility is independent while manually found Pennsylvania webcams stay in Cameras', () => {
+  const { records, screenByPosition } = recordsAt([
+    [0, 0],
+    [0.0001, 0],
+    [0.0002, 0],
+  ]);
+  records[0].camera.id = '511pa-5852';
+  records[0].camera.sourceKind = '511pa-public-camera';
+  records[1].camera.id = 'pa-bounce-malvern-court-1';
+  records[2].camera.id = 'chester-county-west-chester-high-st';
+  const check = (general, penndot, expected) => {
+    _setCctvCoverageStateForTest({
+      viewer: viewerAt(300, screenByPosition),
+      records,
+      cameraCategories: { general, penndot },
+    });
+    refreshHorizonCulling();
+    assert.deepEqual(shownIds(records), [...expected].sort());
+    assert.deepEqual(
+      cctvLayer
+        .getUIState()
+        .cameras.map((c) => c.id)
+        .sort(),
+      [...expected].sort(),
+    );
+    assert.equal(
+      cctvLayer.selectCamera(
+        general ? '511pa-5852' : 'pa-bounce-malvern-court-1',
+      ),
+      false,
+      'a hidden category cannot be selected',
+    );
+  };
+  check(true, false, [
+    'pa-bounce-malvern-court-1',
+    'chester-county-west-chester-high-st',
+  ]);
+  check(false, true, ['511pa-5852']);
+});
+
 test('zooming out reduces dense camera markers and zooming back in restores them', () => {
   const { records, screenByPosition } = recordsAt(
     Array.from({ length: 400 }, (_, i) => [

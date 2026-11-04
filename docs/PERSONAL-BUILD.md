@@ -4,6 +4,10 @@ This build combines the newer upstream fixes with the local features completed
 today. The changes below remain part of this fork even where the upstream PRs
 are still open.
 
+The integration baseline is fork `main` at `b72159ef`. For this publication,
+the later upstream typed-chat, FAA-airspace and Houston-camera batch is deferred.
+Existing fork share-link tokens are retained.
+
 - Hide ambient camera names at 30 km viewer altitude and above. Below that,
   progressively cap names at 12, 15 or 17 with extra spacing in dense areas.
   Camera markers and brackets remain available; names return on zoom in.
@@ -43,6 +47,10 @@ are still open.
 The merge also brings in upstream's bounded zoom-out navigation, reusable area
 and OpenStreetMap voice actions, radio priority-country improvements, and safer
 handling of military reports without position fixes.
+
+PennDOT Traffic Cams now has an independent Data Layers toggle beside Cameras.
+Both categories share one viewer and playback owner; manually found local
+webcams stay in Cameras. Inspection also works when only PennDOT is enabled.
 
 Other local additions retained in this build include Chester County incident
 controls, Pennsylvania camera feeds, saved views and display preferences, per-HUD
