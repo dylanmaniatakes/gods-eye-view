@@ -164,7 +164,16 @@ test('the selected mission is presented with its rows and returns to the top', (
   assert.equal(views.at(-1).mission, null);
 });
 
-test('the panel commands act on the selected mission', () => {
+test('the panel commands act on the selected mission with camera focus enabled', (t) => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: { getItem: () => 'focus' },
+  });
+  t.after(() => {
+    if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
+    else delete globalThis.localStorage;
+  });
   const { state, panel, calls } = fixture();
   state._launches = [launch('a'), launch('b'), launch('c')];
   state._selectedLaunchId = 'b';
@@ -192,5 +201,26 @@ test('the panel commands act on the selected mission', () => {
     ['cancel'],
     ['speed', '2'],
     ['select', null, undefined],
+  ]);
+});
+
+test('mission roster selection preserves the overview when automatic focus is off', (t) => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: { getItem: () => 'inspect' },
+  });
+  t.after(() => {
+    if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
+    else delete globalThis.localStorage;
+  });
+  const { state, panel, calls } = fixture();
+  state._launches = [launch('a'), launch('b')];
+  state._selectedLaunchId = 'b';
+  panel.commands.selectMissionAt(0);
+  panel.commands.focusSelectedLaunchSite();
+  assert.deepEqual(calls, [
+    ['select', 'a', true],
+    ['focus-site', 'b'],
   ]);
 });

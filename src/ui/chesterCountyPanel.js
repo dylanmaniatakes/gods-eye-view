@@ -76,7 +76,10 @@ export function createChesterCountyPanel({ store }) {
       unsubscribeLayer?.();
       unsubscribeLayer = null;
       layer = null;
-      manager = next;
+      manager =
+        next?.layers?.has(ID) && typeof next.isEnabled === 'function'
+          ? next
+          : null;
       unsubscribe = manager?.subscribe((change) => {
         if (!change?.layerId || change.layerId === ID) refresh();
       });
