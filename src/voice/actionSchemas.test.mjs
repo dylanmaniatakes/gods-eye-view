@@ -1,3 +1,4 @@
+import { isAreaCandidateId } from './areaCandidateContract.js';
 import { realtimeInstructions } from '../../server/providers/openai/instructions.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -53,7 +54,8 @@ test('the complete Realtime tool payload pins the manifest-generated layer relea
     // The Operator HUD layout leaves set_hud's layout enum.
     // The layer alias hint leaves out aliases the layer id already spells.
     // Voice geometry and OSM Places combine with the fork's Chester County tools.
-    'fdce261c1204d5bff6d86d5ccc5b4ee30b04f515959727f921ea94a0e3520b48',
+    // Area candidate patterns are portable to flag-free tool-schema validators.
+    '2b72e9346b622778489993a2ea3e92222f858e0a0c74da0ed1d49a1120926906',
   );
 });
 
@@ -96,14 +98,14 @@ test('every emitted area candidate round-trips through the production schema', a
   for (const choice of ambiguous.candidates) {
     assert.ok(choice.candidateId.length >= candidateSchema.minLength);
     assert.ok(choice.candidateId.length <= candidateSchema.maxLength);
-    assert.match(choice.candidateId, new RegExp(candidateSchema.pattern, 'u'));
+    assert.match(choice.candidateId, new RegExp(candidateSchema.pattern));
     assert.equal(
       (await resolver.resolve({ candidateId: choice.candidateId })).ok,
       true,
     );
   }
   assert.equal(ambiguous.candidates[0].candidateId.length, 44);
-  const grammar = new RegExp(candidateSchema.pattern, 'u');
+  const grammar = new RegExp(candidateSchema.pattern);
   for (const malformed of [
     'ne:state:bad slug',
     'ne:state:../../etc',
@@ -112,6 +114,38 @@ test('every emitted area candidate round-trips through the production schema', a
   ])
     assert.doesNotMatch(malformed, grammar);
   assert.ok(`ne:state:${'x'.repeat(80)}`.length > candidateSchema.maxLength);
+});
+
+test('area candidate tool grammar works without JS-only flags and runtime validation stays strict', () => {
+  const schema = GEV_ACTION_SCHEMAS.find((tool) => tool.name === 'resolve_area')
+    .parameters.properties.candidateId;
+  const grammar = new RegExp(schema.pattern);
+  assert.doesNotMatch(schema.pattern, /\\[pP]\{/);
+  for (const id of [
+    'ne:state:georgia',
+    'ne:state:āland',
+    'ne:country:日本',
+    'ne:natural:𐐷',
+    'ne:state:a\u0301',
+  ]) {
+    assert.equal(grammar.test(id), true, id);
+    assert.equal(isAreaCandidateId(id), true, id);
+  }
+  for (const id of [
+    'ne:state:bad slug',
+    'ne:state:../../etc',
+    'ne:state:a_b',
+    'ne:state:!!!',
+    'ne:state:-a',
+    'ne:state:a--b',
+    'ne:state:a-',
+  ]) {
+    assert.equal(grammar.test(id), false, id);
+    assert.equal(isAreaCandidateId(id), false, id);
+  }
+  // The wire grammar permits non-ASCII code points, but they do not bypass
+  // the execution-time Unicode categories or the remembered-candidate lookup.
+  assert.equal(isAreaCandidateId('ne:state:☃'), false);
 });
 
 test('metadata cannot add tools, fields, types or enum values', () => {

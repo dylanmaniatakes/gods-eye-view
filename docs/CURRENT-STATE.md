@@ -6925,3 +6925,13 @@ for the current selection, and is saved in this browser. Turning popups off keep
 markers, selection, live details, Focus and Restore available. It defaults to ON;
 CCTV feeds keep their existing behavior. The `qa-selection-popups.mjs` browser
 gate checks the toggle, live inspection and persistence after reload.
+
+## Realtime voice tool-schema compatibility
+
+The `resolve_area` candidate-ID tool schema uses a flag-free, provider-compatible
+pattern, preserving non-Latin handles without Unicode property escapes. The
+execution-time validator still restricts candidate slugs to letters, marks and
+numbers and checks remembered candidates. An unsupported schema can reject the
+entire Realtime token request before microphone acquisition. Regression coverage
+in `src/voice/actionSchemas.test.mjs` checks Unicode IDs without a JavaScript
+Unicode flag, malformed IDs, and the stricter execution-time guard.

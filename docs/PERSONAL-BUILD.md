@@ -62,6 +62,9 @@ cables against its terrain surface. County-panel bindings tolerate catalogs that
 omit that optional layer. Mission-roster tests cover both inspection and automatic
 camera-focus preferences.
 
+The voice tool schema uses a portable area-identifier pattern accepted by the
+Realtime API, while execution retains strict Unicode identifier validation.
+
 Details: [Flight filters](FLIGHT-FILTERS.md), [Vessel filters](VESSEL-FILTERS.md),
 [Selected-object controls](OBJECT-INSPECTION.md), [Saved views](SAVED-VIEWS.md),
 and [Chester County incidents](CHESTER-COUNTY-EMS.md).
