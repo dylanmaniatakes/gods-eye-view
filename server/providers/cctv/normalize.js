@@ -612,6 +612,11 @@ export function normalizeSourceItem(item) {
     name: String(item.name || item.id || '').trim(),
     city: String(item.city || ''),
     cityId: String(item.cityId || ''),
+    // Explicit venue grouping keeps co-located court feeds selectable.
+    groupId:
+      typeof item.groupId === 'string' && /^[a-z0-9-]{1,80}$/.test(item.groupId)
+        ? item.groupId
+        : undefined,
     provider: String(item.provider || 'Configured CCTV Source'),
     lat: toFiniteNumber(item.lat),
     lon: toFiniteNumber(item.lon),

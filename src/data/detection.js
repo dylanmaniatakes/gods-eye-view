@@ -42,6 +42,9 @@ import {
   detectionBracketAlpha,
   detectionHorizontalSector,
   labelBudgetFor,
+  detectionLabelVisibleAtAltitude,
+  cameraLabelPolicy,
+  limitCameraLabelCandidates,
   normalizeAllocationStrategy,
   profileForDensity,
   viewScaleForAltitude,
@@ -1229,6 +1232,7 @@ function _drawOverlay(frame) {
   // animation's final state is the same frame that ends its demand.
   const now = Number.isFinite(frame.timestamp) ? frame.timestamp : _nowMs();
   const sonarActive = isCyberSonarActive();
+  const altitude = _viewer?.camera?.positionCartographic?.height ?? 1e9;
   const cyberMapActive = isCyberMapThemeActive();
   const sonarSampler = createCyberSonarSampler(width, height, now);
   const bracketPresentationOpacity = detectionBracketOpacity(_cockpitActive);
@@ -1450,6 +1454,12 @@ function _drawOverlay(frame) {
       continue;
     }
 
+    if (
+      obj.suppressLabel ||
+      !detectionLabelVisibleAtAltitude(obj.type, altitude)
+    )
+      continue;
+
     const primary = String(obj.id || '');
     const micro = String(obj.metric || '');
     if (!primary && !micro) continue;
@@ -1496,7 +1506,6 @@ function _drawOverlay(frame) {
     }
   }
 
-  const altitude = _viewer?.camera?.positionCartographic?.height ?? 1e9;
   const collectiveBudget = labelBudgetFor(altitude, _densityPct);
   const ambientBudget = Math.max(
     0,
@@ -1539,7 +1548,12 @@ function _drawOverlay(frame) {
       ).length;
     }
     const solveStarted = performance.now();
-    _labelArbiter.solve(solveCandidates, {
+    const labelCandidates = limitCameraLabelCandidates(
+      solveCandidates,
+      altitude,
+      _labelArbiter.selectedKeys,
+    );
+    _labelArbiter.solve(labelCandidates, {
       capacity: ambientBudget,
       strategy: _allocationStrategy,
       layerWeights: LAYER_WEIGHTS,
@@ -1585,7 +1599,27 @@ function _drawOverlay(frame) {
   // becomes visible on a parked scene.
   const animatingCount = countAnimatingRenderEntries(renderEntries);
   _calloutCount = 0;
-  for (const entry of renderEntries) _stashCallout(entry, fade, keyhole);
+  // Enforce the camera cap on every paint, including an old cohort fading out
+  // while a scroll crosses a policy boundary between solve ticks.
+  const cameraPolicy = cameraLabelPolicy(altitude);
+  const cameraAnchors = [];
+  for (const entry of renderEntries) {
+    const candidate = entry.candidate;
+    if (candidate.type === 'CAM') {
+      if (cameraAnchors.length >= cameraPolicy.limit) continue;
+      if (
+        cameraAnchors.some(
+          (other) =>
+            (candidate.screenX - other.screenX) ** 2 +
+              (candidate.screenY - other.screenY) ** 2 <
+            cameraPolicy.spacingPx ** 2,
+        )
+      )
+        continue;
+      cameraAnchors.push(candidate);
+    }
+    _stashCallout(entry, fade, keyhole);
+  }
   _ctx.font = FONT;
   _ctx.globalAlpha = 1;
 

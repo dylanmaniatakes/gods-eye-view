@@ -61,12 +61,16 @@ export function isLocalMcpRequest({
 /** Vite plugin that mounts the local MCP server at /mcp. */
 export function localMcpPlugin({
   createServer = createLocalMcpServer,
+  viewSessions,
   bodyTimeoutMs = BODY_TIMEOUT_MS,
 } = {}) {
   const handlers = new Map();
   const handlerFor = (apiBase) => {
     if (!handlers.has(apiBase))
-      handlers.set(apiBase, createMcpHttpHandler(createServer({ apiBase })));
+      handlers.set(
+        apiBase,
+        createMcpHttpHandler(createServer({ apiBase, viewSessions })),
+      );
     return handlers.get(apiBase);
   };
   const install = (server) => {

@@ -5,6 +5,38 @@ import { createIonImagery } from './imagery.js';
 import { createWorldTerrain, createKeylessTerrain } from './terrain.js';
 import { createDefaultMapSources } from './defaultSources.js';
 
+test('keyless hybrid composes World Imagery with transparent roads and place references', async () => {
+  const previous = Cesium.ArcGisMapServerImageryProvider.fromUrl;
+  const calls = [];
+  try {
+    Cesium.ArcGisMapServerImageryProvider.fromUrl = async (url, options) => {
+      calls.push({ url, options });
+      return { url };
+    };
+    const source = createDefaultMapSources().sources.find(
+      ({ descriptor }) => descriptor.id === 'esri-hybrid',
+    );
+    assert.equal(source.available, true);
+    assert.equal(source.descriptor.requiresIon, false);
+    await source.imagery();
+    await Promise.all(source.overlays.map((create) => create()));
+    assert.deepEqual(
+      calls.map(({ url }) => url.split('/services/')[1]),
+      [
+        'World_Imagery/MapServer',
+        'Reference/World_Transportation/MapServer',
+        'Reference/World_Boundaries_and_Places/MapServer',
+      ],
+    );
+    assert.ok(
+      calls.every(({ options }) => options.enablePickFeatures === false),
+    );
+    assert.equal(source.tileFailureFallback.id, 'osm');
+  } finally {
+    Cesium.ArcGisMapServerImageryProvider.fromUrl = previous;
+  }
+});
+
 test('Esri uses Re:Earth without keys and preserves ion terrain when configured', async () => {
   const originalTerrain = Cesium.CesiumTerrainProvider.fromUrl;
   const originalResource = Cesium.IonResource.fromAssetId;

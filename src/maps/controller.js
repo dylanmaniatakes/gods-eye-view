@@ -47,6 +47,9 @@ export class MapSourceController {
     this._credits = createMapCredits(viewer);
     this._abort = new AbortController();
     this._imageryProviders = new Map();
+    this._overlayProviders = new Map();
+    this._overlayLayers = [];
+    this._activeOverlayProviders = [];
     this._terrainProviders = new Map();
     this._tilesets = new Map();
     this._ownedTilesets = new Set();
@@ -287,6 +290,19 @@ export class MapSourceController {
   async _activateGlobeStack(stack, gen) {
     const resolution = await this._getImageryProvider(stack);
     if (gen !== this._switchGen) return;
+    const source = this._sources.get(resolution.effectiveStackId);
+    // Resolve references before committing, so a newer stack selection can
+    // supersede a slow hybrid request without leaving labels on another map.
+    const overlays = await Promise.all(
+      (source?.overlays || []).map((create, index) =>
+        this._cached(
+          this._overlayProviders,
+          `${source.descriptor.id}:${index}`,
+          create,
+        ),
+      ),
+    );
+    if (gen !== this._switchGen) return;
     // Scene shots reapply their map stack at every handoff. Keep the live
     // layer (and its loaded tiles) when the resolved provider is unchanged;
     // rebuilding it exposes the bare globe while imagery loads again.
@@ -299,7 +315,7 @@ export class MapSourceController {
       this._activeImageryProvider = resolution.provider;
       this.viewer.imageryLayers.add(this._imageryLayer, 0);
     }
-    const source = this._sources.get(resolution.effectiveStackId);
+    this._setOverlayLayers(overlays);
     this._credits.show(source?.credit || null);
     // A repeated request still owns a new switch generation. Rebind its
     // failure listener so fallback remains live without accumulating listeners.
@@ -562,11 +578,31 @@ export class MapSourceController {
   _removeImageryLayer() {
     this._removeImageryErrorListener?.();
     this._removeImageryErrorListener = null;
+    this._setOverlayLayers([]);
     if (this._imageryLayer)
       this.viewer.imageryLayers.remove(this._imageryLayer, true);
     this._imageryLayer = null;
     this._activeImageryProvider = null;
     this._activeResolution = null;
+  }
+
+  _setOverlayLayers(providers) {
+    if (
+      this._activeOverlayProviders.length === providers.length &&
+      this._activeOverlayProviders.every(
+        (provider, index) => provider === providers[index],
+      )
+    )
+      return;
+    for (const layer of this._overlayLayers)
+      this.viewer.imageryLayers.remove(layer, true);
+    this._overlayLayers = providers.map((provider, index) => {
+      const layer = this._createImageryLayer(provider);
+      // Above this controller's base, below data/comparison imagery.
+      this.viewer.imageryLayers.add(layer, index + 1);
+      return layer;
+    });
+    this._activeOverlayProviders = providers;
   }
   _dispose(value) {
     if (!value || this._disposed.has(value)) return;
@@ -594,6 +630,11 @@ export class MapSourceController {
         (value) => this._dispose(value.provider),
         () => {},
       );
+    for (const promise of this._overlayProviders.values())
+      void Promise.resolve(promise).then(
+        (provider) => this._dispose(provider),
+        () => {},
+      );
     for (const promise of this._terrainProviders.values())
       void Promise.resolve(promise).then(
         (value) => this._dispose(value.provider),
@@ -609,6 +650,7 @@ export class MapSourceController {
         () => {},
       );
     this._imageryProviders.clear();
+    this._overlayProviders.clear();
     this._terrainProviders.clear();
     this._tilesets.clear();
     this._ownedTilesets.clear();

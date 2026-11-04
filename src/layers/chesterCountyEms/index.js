@@ -1,8 +1,11 @@
+import { selectionPopupPreference } from '../../data/selectionPopupPreference.js';
+import { selectionMovesCamera } from '../../data/selectionCameraPolicy.js';
 import * as Cesium from 'cesium';
 import { msg, t } from '../../i18n/index.js';
 
 const ID = 'chester-county-ems';
 const SELECTED = `${ID}-selected`;
+const CATEGORIES = ['fire', 'ems', 'traffic'];
 const STYLES = {
   fire: {
     symbol: '🔥',
@@ -27,22 +30,143 @@ for (const style of Object.values(STYLES))
       `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#10202b" stroke="white" stroke-width="2"/>${style.path}</svg>`,
     );
 const styleFor = (row) => STYLES[row.category] || STYLES.ems;
-const accuracy = (row) =>
-  row.mapPosition?.kind === 'place'
-    ? t('Approximate named place')
-    : row.mapPosition?.kind === 'address'
-      ? t('Approximate address')
-      : t('Approximate intersection');
+const detailLink = (row) => {
+  try {
+    const url = new URL(row.detailUrl);
+    return url.origin === 'https://webcad.chesco.org' &&
+      url.pathname === `/WebCad/livecadcomments-${row.category}.asp` &&
+      url.searchParams.get('incidentno') === row.incidentNumber &&
+      !url.username &&
+      !url.password &&
+      !url.hash
+      ? url.href
+      : null;
+  } catch {
+    return null;
+  }
+};
+// Like the S2 cards, keep source text readable within the canvas card width.
+const wrap = (value) =>
+  String(value)
+    .match(/.{1,60}(?:\s|$)|.{1,60}/g)
+    ?.map((line) => line.trim())
+    .slice(0, 2) || [];
 
 /** Display county incidents at approximate street intersections or address points. */
-export function createChesterCountyEmsLayer({ source, overlayHost }) {
-  let viewer, dataSource, request, listener;
+export function createChesterCountyEmsLayer({
+  source,
+  selectionPopups = selectionPopupPreference,
+  overlayHost,
+  openExternal,
+  screenSpaceEventHandlerFactory,
+  picking,
+  pointer,
+}) {
+  let viewer, dataSource, request, rowControlsListener;
+  const panelListeners = new Set();
   let enabled = false;
   let snapshot = null;
   let error = null;
   let selected = null;
+  let popupUnsubscribe = null;
+  let categories = [...CATEGORIES];
+  const visibleRows = () =>
+    (snapshot?.rows || []).filter((row) => categories.includes(row.category));
+  let clickHandler, detailsRequest;
+  let detail = null,
+    detailsError = false;
+  function clearSelection() {
+    detailsRequest?.abort();
+    detailsRequest = null;
+    detail = null;
+    detailsError = false;
+    selected = null;
+    overlayHost.clearSource(SELECTED);
+  }
+  async function loadDetails() {
+    detailsRequest?.abort();
+    detailsRequest = null;
+    const row = visibleRows().find((row) => row.id === selected);
+    if (!row || !detailLink(row) || !source.getIncidentDetails) return;
+    const current = new AbortController();
+    detailsRequest = current;
+    detailsError = false;
+    renderSelection();
+    try {
+      const result = await source.getIncidentDetails(row.id, {
+        signal: current.signal,
+      });
+      if (
+        current.signal.aborted ||
+        detailsRequest !== current ||
+        !enabled ||
+        selected !== row.id
+      )
+        return;
+      detail = result;
+    } catch {
+      if (
+        current.signal.aborted ||
+        detailsRequest !== current ||
+        !enabled ||
+        selected !== row.id
+      )
+        return;
+      detailsError = true;
+    } finally {
+      if (detailsRequest === current) {
+        detailsRequest = null;
+        renderSelection();
+        notify();
+      }
+    }
+  }
+  function select(id, fly = false) {
+    const row = visibleRows().find((row) => row.id === id);
+    if (!enabled || !row) return;
+    clearSelection();
+    selected = row.id;
+    renderSelection();
+    notify();
+    void loadDetails();
+    if (fly && row.mapPosition)
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(
+          row.mapPosition.lon,
+          row.mapPosition.lat,
+          1800,
+        ),
+      });
+  }
+  function installClickHandler() {
+    if (!screenSpaceEventHandlerFactory || !picking || clickHandler) return;
+    picking.registerPickOwner(ID, (id) => id.startsWith(`${ID}:`));
+    clickHandler = screenSpaceEventHandlerFactory(viewer);
+    clickHandler.setInputAction((click) => {
+      if (pointer && !pointer.isPointerFree()) return;
+      const hit = overlayHost.hitTest?.(click.position?.x, click.position?.y, {
+        sourceId: SELECTED,
+      });
+      if (hit?.entryId === selected) {
+        const row = visibleRows().find((row) => row.id === selected);
+        const link = row && detailLink(row);
+        if (link) openExternal?.(link);
+        return;
+      }
+      const picked = viewer.scene.pick(click.position);
+      const id = picking.resolvePickId(picked);
+      if (id?.startsWith(`${ID}:`)) {
+        select(id.slice(ID.length + 1));
+        return;
+      }
+      if (id && picking.isOwnedByOtherLayer(ID, id)) return;
+      clearSelection();
+      notify();
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+  }
   const notify = () => {
-    listener?.();
+    rowControlsListener?.();
+    for (const listener of panelListeners) listener();
     viewer?.scene?.requestRender?.();
   };
   const position = (row) =>
@@ -56,8 +180,7 @@ export function createChesterCountyEmsLayer({ source, overlayHost }) {
   function render() {
     if (!dataSource || !enabled) return;
     dataSource.entities.removeAll();
-    const entries = [];
-    for (const row of snapshot?.rows || []) {
+    for (const row of visibleRows()) {
       if (!row.mapPosition) continue;
       const style = styleFor(row);
       const anchor = position(row);
@@ -73,35 +196,15 @@ export function createChesterCountyEmsLayer({ source, overlayHost }) {
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
       });
-      if (row.id !== selected)
-        entries.push({
-          id: row.id,
-          position: anchor,
-          variant: 'label',
-          title: `${style.symbol} ${row.location} · ${accuracy(row)}`,
-          details: [row.municipality],
-          accent: styleFor(row).color,
-          interactive: false,
-          horizonCull: true,
-          terrainOcclusion: false,
-          collisionGroup: 'ambient-label',
-          paintLane: 'ambient-label',
-          priority: 1,
-          placement: 'above',
-        });
     }
-    overlayHost.setEntries(ID, entries, {
-      cohortLimit: 96,
-      collisionCapacity: 96,
-      moving: false,
-    });
+    overlayHost.clearSource(ID);
     renderSelection();
     notify();
   }
   function renderSelection() {
     overlayHost.clearSource(SELECTED);
-    const row = snapshot?.rows.find((row) => row.id === selected);
-    if (!enabled || !row?.mapPosition) return;
+    const row = visibleRows().find((row) => row.id === selected);
+    if (!enabled || !row?.mapPosition || !selectionPopups.get()) return;
     overlayHost.setEntries(
       SELECTED,
       [
@@ -116,8 +219,12 @@ export function createChesterCountyEmsLayer({ source, overlayHost }) {
           priority: Number.MAX_SAFE_INTEGER,
           title: `${styleFor(row).symbol} ${row.incidentNumber || row.id} · ${row.type}`,
           details: [
-            row.location,
-            row.municipality,
+            ...wrap(t('Location: {location}', { location: row.location })),
+            ...wrap(
+              t('Municipality: {municipality}', {
+                municipality: row.municipality,
+              }),
+            ),
             ...(row.mapPosition.matchedLocation
               ? [
                   t('GIS match: {location}', {
@@ -129,11 +236,61 @@ export function createChesterCountyEmsLayer({ source, overlayHost }) {
             row.category === 'traffic'
               ? t('Agency: {agency}', { agency: row.station })
               : t('Station: {station}', { station: row.station }),
-            accuracy(row),
+            ...(detailsRequest && !detail ? [t('Loading unit status...')] : []),
+            ...(detail
+              ? [
+                  t('Units: {count}', {
+                    count: new Set(detail.units.map((unit) => unit.unit)).size,
+                  }),
+                  ...detail.units.slice(0, 8).flatMap((unit) =>
+                    wrap(
+                      t('{unit} · {status} · {time}', {
+                        unit: unit.unit,
+                        status: unit.status,
+                        time: unit.entered,
+                      }),
+                    ),
+                  ),
+                  ...(detail.units.length > 8
+                    ? [
+                        t('{count} more unit updates · open source', {
+                          count: detail.units.length - 8,
+                        }),
+                      ]
+                    : []),
+                  ...(!detail.units.length ? [t('No public unit status')] : []),
+                  t('Unit status updated: {time} (America/New_York)', {
+                    time: new Date(detail.observedAt).toLocaleString(
+                      undefined,
+                      { timeZone: 'America/New_York' },
+                    ),
+                  }),
+                  ...(detail.stale || detailsError
+                    ? [t('Unit status is stale')]
+                    : []),
+                ]
+              : detailsError
+                ? [t('Unit status unavailable')]
+                : []),
+            ...(detailLink(row) && openExternal
+              ? [t('Open incident source ↗')]
+              : []),
             ...(stale() ? [t('Stale data')] : []),
           ],
           accent: styleFor(row).color,
-          interactive: false,
+          interactive: Boolean(detailLink(row) && openExternal),
+          ...(detailLink(row) && openExternal
+            ? {
+                accessibilityLabel: t('Open the source for {title}', {
+                  title: row.incidentNumber || row.id,
+                }),
+                activate: () => {
+                  openExternal(detailLink(row));
+                  return true;
+                },
+              }
+            : {}),
+          stateless: true,
           horizonCull: true,
           terrainOcclusion: false,
           verticalOnly: true,
@@ -157,16 +314,26 @@ export function createChesterCountyEmsLayer({ source, overlayHost }) {
     },
     enable() {
       enabled = true;
+      popupUnsubscribe ??= selectionPopups.subscribe(() => {
+        renderSelection();
+        notify();
+      });
       dataSource.show = true;
       overlayHost.setVisible(ID, true);
       overlayHost.setVisible(SELECTED, true);
+      installClickHandler();
       render();
     },
     disable() {
       enabled = false;
+      popupUnsubscribe?.();
+      popupUnsubscribe = null;
       request?.abort();
       request = null;
-      selected = null;
+      clearSelection();
+      clickHandler?.destroy();
+      clickHandler = null;
+      picking?.unregisterPickOwner(ID);
       if (dataSource) dataSource.show = false;
       for (const id of [ID, SELECTED]) {
         overlayHost.clearSource(id);
@@ -185,8 +352,9 @@ export function createChesterCountyEmsLayer({ source, overlayHost }) {
           return false;
         snapshot = next;
         error = null;
-        if (!next.rows.some((row) => row.id === selected)) selected = null;
+        if (!next.rows.some((row) => row.id === selected)) clearSelection();
         render();
+        if (selected) void loadDetails();
         return true;
       } catch {
         if (current.signal.aborted || request !== current || !enabled)
@@ -202,11 +370,14 @@ export function createChesterCountyEmsLayer({ source, overlayHost }) {
     destroy() {
       layer.disable();
       if (dataSource) viewer.dataSources.remove(dataSource, true);
-      viewer = dataSource = snapshot = listener = null;
+      panelListeners.clear();
+      rowControlsListener = null;
+      viewer = dataSource = snapshot = null;
     },
     getStats() {
       return {
         count: snapshot?.rows.length || 0,
+        displayCount: visibleRows().length,
         lastUpdate: snapshot?.fetchedAt || null,
         observedAt: snapshot?.observedAt || null,
         stale: stale(),
@@ -222,8 +393,39 @@ export function createChesterCountyEmsLayer({ source, overlayHost }) {
       };
     },
     getRowControls() {
-      const rows = snapshot?.rows || [];
       return {
+        chips: CATEGORIES.map((category) => ({
+          id: category,
+          label: t(
+            category === 'fire'
+              ? 'Fire'
+              : category === 'ems'
+                ? 'EMS'
+                : 'Police / traffic',
+          ),
+          title:
+            category === 'traffic'
+              ? t('Public WebCAD traffic reports')
+              : undefined,
+          active: categories.includes(category),
+          params: {
+            categories: categories.includes(category)
+              ? categories.filter((value) => value !== category)
+              : [...categories, category],
+          },
+        })),
+      };
+    },
+    setRowControlsListener(listener) {
+      rowControlsListener = typeof listener === 'function' ? listener : null;
+    },
+    getIncidentPanelState() {
+      const allRows = snapshot?.rows || [];
+      const rows = visibleRows();
+      return {
+        enabled,
+        categories: [...categories],
+        total: allRows.length,
         chips: [
           {
             id: 'county',
@@ -255,13 +457,21 @@ export function createChesterCountyEmsLayer({ source, overlayHost }) {
 
           snapshot
             ? `${t('Updated')}: ${new Date(snapshot.observedAt).toLocaleString(undefined, { timeZone: 'America/New_York' })} (America/New_York)`
-            : t('Loading...'),
+            : error
+              ? ''
+              : t('Loading...'),
+          snapshot
+            ? t('{matching} of {total} incidents', {
+                matching: rows.length,
+                total: allRows.length,
+              })
+            : '',
           snapshot
             ? t(
                 '{mapped} mapped · {unresolved} unresolved · {errors} lookup errors',
                 {
-                  mapped: rows.filter((row) => row.mapPosition).length,
-                  unresolved: rows.filter(
+                  mapped: allRows.filter((row) => row.mapPosition).length,
+                  unresolved: allRows.filter(
                     (row) =>
                       !row.mapPosition && row.locationStatus !== 'unavailable',
                   ).length,
@@ -269,8 +479,12 @@ export function createChesterCountyEmsLayer({ source, overlayHost }) {
                 },
               )
             : '',
+          error ? t(error) : '',
           stale() ? t('Stale data') : '',
-          snapshot && !rows.length ? t('No active incidents') : '',
+          snapshot && !allRows.length ? t('No active incidents') : '',
+          snapshot && allRows.length && !rows.length
+            ? t('No matching incidents')
+            : '',
         ]
           .filter(Boolean)
           .join(' · '),
@@ -279,32 +493,55 @@ export function createChesterCountyEmsLayer({ source, overlayHost }) {
           items: rows.map((row) => ({
             id: row.id,
             lead: `${styleFor(row).symbol} ${row.incidentNumber || row.id} · ${row.type}`,
-            text: `${row.location} · ${row.municipality} · ${row.dispatched} (America/New_York) · ${row.category === 'traffic' ? t('Agency: {agency}', { agency: row.station }) : t('Station: {station}', { station: row.station })}${row.mapPosition ? ` · ${accuracy(row)}` : ` · ${row.locationStatus === 'unavailable' ? t('Location lookup failed') : t('No location match')}`}`,
+            text: `${row.location} · ${row.municipality} · ${row.dispatched} (America/New_York) · ${row.category === 'traffic' ? t('Agency: {agency}', { agency: row.station }) : t('Station: {station}', { station: row.station })}${row.mapPosition ? '' : ` · ${row.locationStatus === 'unavailable' ? t('Location lookup failed') : t('No location match')}`}`,
             active: selected === row.id,
             params: { selectedIncident: row.id },
           })),
         },
       };
     },
-    setParams(params) {
-      if (!enabled || !Object.hasOwn(params, 'selectedIncident')) return;
-      const row = snapshot?.rows.find(
-        (row) => row.id === params.selectedIncident,
-      );
-      if (!row) return;
-      selected = row.id;
-      render();
-      if (row.mapPosition)
-        viewer.camera.flyTo({
-          destination: Cesium.Cartesian3.fromDegrees(
-            row.mapPosition.lon,
-            row.mapPosition.lat,
-            1800,
-          ),
-        });
+    getParams() {
+      return { categories: [...categories] };
     },
-    setRowControlsListener(next) {
-      listener = next;
+    /** Public, live selection details for the side inspector. */
+    getInspectionInfo() {
+      const row = snapshot?.rows.find((item) => item.id === selected);
+      return enabled && row
+        ? {
+            id: row.id,
+            label: `${row.incidentNumber || row.id} · ${row.type}`,
+            latitude: row.mapPosition?.lat,
+            longitude: row.mapPosition?.lon,
+            properties: {
+              ...row,
+              mapPosition: undefined,
+              units: detail?.units || [],
+              stale: stale(),
+              detailsLoading: Boolean(detailsRequest),
+              detailsUnavailable: detailsError,
+            },
+          }
+        : null;
+    },
+    setParams(params) {
+      if (
+        Object.hasOwn(params, 'categories') &&
+        Array.isArray(params.categories) &&
+        params.categories.every((category) => CATEGORIES.includes(category))
+      ) {
+        categories = CATEGORIES.filter((category) =>
+          params.categories.includes(category),
+        );
+        if (!visibleRows().some((row) => row.id === selected)) clearSelection();
+        render();
+      }
+      if (!enabled || !Object.hasOwn(params, 'selectedIncident')) return;
+      select(params.selectedIncident, selectionMovesCamera());
+    },
+    /** Subscribe to incident/list selection updates without owning the layer's polling. */
+    subscribeIncidentPanel(listener) {
+      panelListeners.add(listener);
+      return () => panelListeners.delete(listener);
     },
   };
   return layer;

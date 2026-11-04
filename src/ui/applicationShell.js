@@ -1,3 +1,18 @@
+import { selectionPopupPreference } from '../data/selectionPopupPreference.js';
+import { createVesselPanel } from './vesselPanel.js';
+import { useVesselPanelStore } from './stores/vesselPanel.js';
+import { createObjectInspection } from './objectInspection.js';
+import { createFlightPanel } from './flightPanel.js';
+import { useFlightPanelStore } from './stores/flightPanel.js';
+import { createFocusReturn } from './focusReturn.js';
+import { useObjectInspectionStore } from './stores/objectInspection.js';
+import { createSavedViews } from './savedViews.js';
+import { useSavedViewsStore } from './stores/savedViews.js';
+import {
+  selectionMovesCamera,
+  setSelectionMovesCamera,
+} from '../data/selectionCameraPolicy.js';
+import { connectViewSession } from './viewSession.js';
 import { nextTick } from 'vue';
 import { resolveImageryHost } from '../layers/weather/imageryHost.js';
 import { ShellFacade } from './shellFacade.js';
@@ -263,6 +278,8 @@ export class StyleManager extends ShellFacade {
         cctvLayer: services.cctvLayer,
       },
       readControls: () => ({
+        flightPanel: this.flightPanel,
+        vesselPanel: this.vesselPanel,
         hud: this.hud,
         _contextControls: this._contextControls,
         _cctvControls: this._cctvControls,
@@ -546,8 +563,8 @@ export class StyleManager extends ShellFacade {
         _setSharpenEnabled: (...args) => this._setSharpenEnabled(...args),
         _setSharpenIntensity: (...args) => this._setSharpenIntensity(...args),
         _setHudVariant: (...args) => this._setHudVariant(...args),
-        _setCyberAccent: (...args) =>
-          this._visualSettings._setCyberAccent(...args),
+        _setDisplayAccent: (...args) =>
+          this._visualSettings._setDisplayAccent(...args),
         _setCyberSonarEnabled: (...args) => this._setCyberSonarEnabled(...args),
         _setCyberSonarSetting: (...args) => this._setCyberSonarSetting(...args),
         _setDetectionDensity: (...args) => this._setDetectionDensity(...args),
@@ -594,6 +611,10 @@ export class StyleManager extends ShellFacade {
     this._initGlobalContextPanel();
     this._initLocationBar();
     this._initMobileShell();
+    this._initSavedViews();
+    this._initObjectInspection();
+    this._initFlightPanel();
+    this._initVesselPanel();
     this._initShareButton();
     this._initCameraOrientationControls();
     this._initClearSelectedLayersButton();
@@ -607,6 +628,9 @@ export class StyleManager extends ShellFacade {
     this._publishActiveStyle();
     this._updateLocationMiniStatus();
 
+    this._visualSettings.restoreLocalPreferences({
+      sharedView: !!this._initialShareState,
+    });
     this._shareRestoration.start();
 
     // Keep the parameter panel from overlapping toggle controls.
@@ -898,6 +922,7 @@ export class StyleManager extends ShellFacade {
 
   _syncShareState() {
     if (this._disposed) return;
+    this._visualSettings?.persistLocalPreferences();
     this._shareState.publish({ type: 'settings-changed' });
   }
 
@@ -1462,7 +1487,7 @@ export class StyleManager extends ShellFacade {
       ),
       orientation: {
         heading: Cesium.Math.toRadians(cameraState.heading || 0),
-        pitch: Cesium.Math.toRadians(cameraState.pitch || -35),
+        pitch: Cesium.Math.toRadians(cameraState.pitch ?? -35),
         roll: Cesium.Math.toRadians(cameraState.roll || 0),
       },
       duration: Math.max(0.2, duration || 0),
@@ -1673,6 +1698,178 @@ export class StyleManager extends ShellFacade {
    * 'cancelled' (no toast) or false (failed).
    * @returns {void}
    */
+  /** Live selected-object details, double-click focus and an exact camera return. */
+  _initObjectInspection() {
+    const store = useObjectInspectionStore(applicationPinia());
+    store.canReturn = false;
+    store.mapPopups = selectionPopupPreference.get();
+    this._lifetime.own(
+      selectionPopupPreference.subscribe((visible) => {
+        store.mapPopups = visible;
+      }),
+    );
+    const camera = this.viewer.camera;
+    const history = createFocusReturn({
+      capture: () => ({
+        position: Cesium.Cartesian3.clone(camera.positionWC),
+        direction: Cesium.Cartesian3.clone(camera.directionWC),
+        up: Cesium.Cartesian3.clone(camera.upWC),
+      }),
+      restore: (snapshot) => {
+        this.beginLocationNavigation();
+        camera.cancelFlight();
+        camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+        camera.setView({
+          destination: snapshot.position,
+          orientation: { direction: snapshot.direction, up: snapshot.up },
+        });
+        this.viewer.scene.requestRender();
+      },
+      publish: (canReturn) => {
+        store.canReturn = canReturn;
+      },
+    });
+    const navigate = (model) => {
+      const layer = this._dataManager?.layers.get(model.layerId)?.module;
+      if (
+        !layer &&
+        model.layerId !== 'map-object' &&
+        model.layerId !== 'earthquakes'
+      )
+        return false;
+      if (
+        !layer?.trackById &&
+        model.layerId !== 'cctv' &&
+        (!Number.isFinite(model.latitude) || !Number.isFinite(model.longitude))
+      )
+        return false;
+      return this.runImmediateNavigation('target', () => {
+        if (layer?.trackById)
+          return layer.trackById(model.id, { origin: 'user' });
+        if (model.layerId === 'cctv') return layer.focusCamera(model.id, 1.4);
+        layer?.selectById?.(model.id);
+        camera.flyToBoundingSphere(
+          new Cesium.BoundingSphere(
+            Cesium.Cartesian3.fromDegrees(
+              model.longitude,
+              model.latitude,
+              model.altitudeM || 0,
+            ),
+            100,
+          ),
+          {
+            offset: new Cesium.HeadingPitchRange(
+              camera.heading,
+              Cesium.Math.toRadians(-35),
+              2500,
+            ),
+            duration: 1.4,
+          },
+        );
+        return true;
+      });
+    };
+    const owner = createObjectInspection({
+      viewer: this.viewer,
+      getManager: () => this._dataManager,
+      publish: (model) => store.publish(model),
+      reveal: () =>
+        this.setPanelCollapsed('object-inspection-panel', false, {
+          explicit: true,
+          persist: false,
+          syncShare: false,
+        }),
+      focus: (model) => history.focus(() => navigate(model)),
+      restore: () => history.back(),
+    });
+    this.objectInspection = owner;
+    const token = store.connect({
+      focus: owner.focus,
+      restore: owner.restore,
+      toggleMapPopups: () =>
+        selectionPopupPreference.set(!selectionPopupPreference.get()),
+    });
+    this._lifetime.own(() => {
+      owner.destroy();
+      store.detach(token);
+      store.canReturn = false;
+    });
+  }
+
+  _initFlightPanel() {
+    let storage;
+    try {
+      storage = globalThis.localStorage;
+    } catch {
+      /* Optional preferences. */
+    }
+    this.flightPanel = createFlightPanel({
+      store: useFlightPanelStore(applicationPinia()),
+      storage,
+      reveal: () =>
+        this.setPanelCollapsed('flight-panel', false, {
+          explicit: true,
+          persist: true,
+          syncShare: false,
+        }),
+    });
+    this._lifetime.own(() => this.flightPanel.destroy());
+  }
+
+  _initVesselPanel() {
+    let storage;
+    try {
+      storage = globalThis.localStorage;
+    } catch {
+      /* Optional preferences. */
+    }
+    this.vesselPanel = createVesselPanel({
+      store: useVesselPanelStore(applicationPinia()),
+      storage,
+      reveal: () =>
+        this.setPanelCollapsed('vessel-panel', false, {
+          explicit: true,
+          persist: true,
+          syncShare: false,
+        }),
+    });
+    this._lifetime.own(() => this.vesselPanel.destroy());
+  }
+
+  _initSavedViews() {
+    const store = useSavedViewsStore(applicationPinia());
+    store.focusOnClick = selectionMovesCamera();
+    let storage;
+    try {
+      storage = globalThis.localStorage;
+    } catch {
+      /* Storage can be denied. */
+    }
+    this.savedViews = createSavedViews({
+      storage,
+      capture: () => this.getCameraState(),
+      restore: (camera) => {
+        this.beginLocationNavigation();
+        this.viewer.camera.cancelFlight();
+        this.applyCameraState(camera, 0.8);
+      },
+      publish: (state) => store.publish(state),
+    });
+    this._lifetime.listen(window, 'storage', () => {
+      store.focusOnClick = selectionMovesCamera();
+      store.publish({ rows: this.savedViews.list(), canUndo: store.canUndo });
+    });
+    const actions = {
+      ...this.savedViews,
+      selectionMode: (enabled) => {
+        store.focusOnClick = setSelectionMovesCamera(enabled);
+        return { focusOnClick: store.focusOnClick };
+      },
+    };
+    this._savedViewsToken = store.connect(actions);
+    this._disconnectViewSession = connectViewSession(actions);
+  }
+
   _initShareButton() {
     const store = useGlobeActionsStore(applicationPinia());
     if (this._shareToken) store.detach(this._shareToken);
@@ -1803,6 +2000,8 @@ export class StyleManager extends ShellFacade {
     useDisplayStore(applicationPinia()).publishMapSource(null);
     this._cameraOrientationControls?.destroy();
     this._releaseGlobeActions();
+    this._disconnectViewSession?.();
+    useSavedViewsStore(applicationPinia()).detach(this._savedViewsToken);
     this._cctvControls?.destroy();
     this.services?.streetLevelLayer?.attachNavigation?.(null);
     this._streetLevelControls?.destroy();

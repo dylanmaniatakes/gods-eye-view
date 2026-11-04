@@ -70,6 +70,97 @@ const settle = async () => {
   for (let i = 0; i < 20; i++) await Promise.resolve();
 };
 const descriptor = (id) => ({ id, label: id, kind: 'imagery' });
+
+test('hybrid references retain loaded layers and leave with their owned base', async () => {
+  const road = { id: 'roads' },
+    places = { id: 'places' };
+  const env = fixture({
+    defaultId: 'hybrid',
+    sources: [
+      {
+        descriptor: descriptor('hybrid'),
+        imagery: () => ({}),
+        overlays: [() => road, () => places],
+      },
+      { descriptor: descriptor('plain'), imagery: () => ({}) },
+    ],
+  });
+  await env.controller.setStack('hybrid');
+  assert.deepEqual(
+    env.imagery.slice(1).map((layer) => layer.provider),
+    [road, places],
+  );
+  const layers = [...env.imagery];
+  await env.controller.setStack('hybrid');
+  assert.deepEqual(env.imagery, layers);
+  await env.controller.setStack('plain');
+  assert.equal(env.imagery.length, 1);
+  assert.ok(
+    layers.every((layer) => env.removed.some(({ value }) => value === layer)),
+  );
+  env.controller.destroy();
+  assert.equal(env.imagery.length, 0);
+});
+
+test('a slow hybrid switch cannot add references over a newer map', async () => {
+  let finish;
+  const env = fixture({
+    defaultId: 'hybrid',
+    sources: [
+      {
+        descriptor: descriptor('hybrid'),
+        imagery: () => ({}),
+        overlays: [
+          () =>
+            new Promise((resolve) => {
+              finish = resolve;
+            }),
+        ],
+      },
+      { descriptor: descriptor('plain'), imagery: () => ({ id: 'plain' }) },
+    ],
+  });
+  const pending = env.controller.setStack('hybrid');
+  await settle();
+  await env.controller.setStack('plain');
+  finish({ id: 'late labels' });
+  await pending;
+  assert.equal(env.controller.getActiveId(), 'plain');
+  assert.equal(env.imagery.length, 1);
+  assert.equal(env.imagery[0].provider.id, 'plain');
+  env.controller.destroy();
+});
+
+test('unavailable references keep the previously displayed map and can retry', async () => {
+  let failures = true;
+  const env = fixture({
+    defaultId: 'plain',
+    sources: [
+      {
+        descriptor: descriptor('hybrid'),
+        imagery: () => ({}),
+        overlays: [
+          () => {
+            if (failures) throw Error('labels offline');
+            return {};
+          },
+        ],
+      },
+      { descriptor: descriptor('plain'), imagery: () => ({}) },
+    ],
+  });
+  await env.controller.setStack('plain');
+  const previous = env.imagery[0];
+  const failed = await env.controller.setStack('hybrid');
+  assert.equal(failed.activeId, 'plain');
+  assert.match(failed.lastError, /labels offline/);
+  assert.equal(env.imagery[0], previous);
+  failures = false;
+  await env.controller.setStack('hybrid');
+  assert.equal(env.controller.getActiveId(), 'hybrid');
+  assert.equal(env.imagery.length, 2);
+  env.controller.destroy();
+});
 function publicFixture(options) {
   const tileset = { show: true };
   const registry = createDefaultMapSources({ googleTileset: tileset });

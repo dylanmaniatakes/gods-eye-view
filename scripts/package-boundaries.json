@@ -11,19 +11,34 @@
       "src/data/localGeojsonLod.js",
       "src/data/inputOwnership.js",
       "src/data/infrastructureOverlayEntry.js",
-      "src/sources/infrastructureData.js"
+      "src/sources/infrastructureData.js",
+      "src/data/selectionCameraPolicy.js"
     ],
     "external": ["cesium"]
   },
   "application": {
     "exports": ["./application"],
     "modules": [
+      "src/ui/views/panels/VesselPanel.vue",
+      "src/ui/stores/vesselPanel.js",
+      "src/data/vesselDisplayFilters.js",
+      "src/data/vesselTypes.js",
+      "src/data/vesselLabels.js",
+      "src/i18n/marker.js",
+      "src/ui/views/panels/FlightPanel.vue",
+      "src/ui/stores/flightPanel.js",
+      "src/data/flightDisplayFilters.js",
+      "src/data/aircraftClass.js",
       "src/app/application.js",
       "src/ui/vueRuntime.js",
       "src/ui/views/index.js",
       "src/ui/views/CockpitView.vue",
       "src/ui/views/CommandDockView.vue",
       "src/ui/views/ContextView.vue",
+      "src/ui/chesterCountyPanel.js",
+      "src/ui/stores/chesterCountyPanel.js",
+      "src/ui/views/panels/ChesterCountyPanel.vue",
+      "src/ui/rail/RailRowList.vue",
       "src/ui/views/panels/RadioPanel.vue",
       "src/ui/views/panels/SdrCard.vue",
       "src/ui/views/panels/RadioTuner.vue",
@@ -150,7 +165,11 @@
       "src/ui/stores/recording.js",
       "src/ui/styleParameters.js",
       "src/ui/i18n.js",
-      "src/ui/cyberAccentSettings.js"
+      "src/ui/displayAccentSettings.js",
+      "src/ui/views/panels/SavedViews.vue",
+      "src/ui/stores/savedViews.js",
+      "src/ui/views/panels/ObjectInspection.vue",
+      "src/ui/stores/objectInspection.js"
     ],
     "external": ["vue", "pinia", "vue-i18n"]
   },
@@ -348,6 +367,8 @@
       "server/providers/cctv/range.js",
       "server/providers/cctv/sources.js",
       "server/providers/cctv/stream.js",
+      "server/providers/cctv/chesterCounty.js",
+      "server/providers/cctv/penndot.js",
       "server/providers/common/http.js",
       "src/data/directionText.js",
       "server/providers/common/geo.js",
@@ -791,7 +812,8 @@
       "src/ui/vueRuntime.js",
       "src/ui/stores/cctv.js",
       "src/ui/stores/status.js",
-      "src/ui/i18n.js"
+      "src/ui/i18n.js",
+      "src/data/selectionCameraPolicy.js"
     ],
     "external": ["vue", "pinia", "vue-i18n"]
   },
@@ -907,6 +929,13 @@
   "ui-shell": {
     "exports": ["./ui/shell"],
     "modules": [
+      "src/ui/vesselPanel.js",
+      "src/ui/stores/vesselPanel.js",
+      "src/data/vesselDisplayFilters.js",
+      "src/data/vesselTypes.js",
+      "src/ui/flightPanel.js",
+      "src/ui/stores/flightPanel.js",
+      "src/data/flightDisplayFilters.js",
       "src/data/headingDegrees.js",
       "src/data/distanceFormat.js",
       "src/i18n/marker.js",
@@ -1044,12 +1073,16 @@
       "src/ui/visualInput.js",
       "src/ui/visualPresets.js",
       "src/ui/visualSettings.js",
+      "src/ui/displayPreferences.js",
       "src/worldFocus.js",
       "src/data/feedState.js",
       "src/data/layerSnapshot.js",
       "src/ui/aircraftDisplay.js",
       "src/layers/weather/imageryHost.js",
       "src/ui/layerBindings.js",
+      "src/ui/chesterCountyPanel.js",
+      "src/ui/stores/chesterCountyPanel.js",
+      "src/ui/views/panels/ChesterCountyPanel.vue",
       "src/ui/displayBindings.js",
       "src/ui/shellFacade.js",
       "src/ui/streetLevelControls.js",
@@ -1126,7 +1159,19 @@
       "src/ui/stores/globeActions.js",
       "src/ui/stores/recording.js",
       "src/ui/i18n.js",
-      "src/ui/cyberAccentSettings.js"
+      "src/ui/displayAccentSettings.js",
+      "src/data/selectionCameraPolicy.js",
+      "src/ui/savedViews.js",
+      "src/ui/stores/savedViews.js",
+      "src/ui/viewSession.js",
+      "src/ui/objectInspection.js",
+      "src/ui/focusReturn.js",
+      "src/ui/stores/objectInspection.js",
+      "src/data/contextStore.js",
+      "src/data/pickRegistry.js",
+      "src/data/inputOwnership.js",
+      "src/data/trackingClickGesture.js",
+      "src/data/selectionPopupPreference.js"
     ],
     "external": ["cesium", "vue", "pinia", "vue-i18n"]
   },
@@ -1281,6 +1326,8 @@
   "civil-flights": {
     "exports": ["./layers/flights"],
     "modules": [
+      "src/layers/aircraft/displayFilters.js",
+      "src/data/flightDisplayFilters.js",
       "src/data/headingDegrees.js",
       "src/i18n/marker.js",
       "src/cyberSonar.js",
@@ -1324,6 +1371,7 @@
       "src/layers/flights/modelSpec.js",
       "src/data/inputOwnership.js",
       "src/data/modelEligibility.js",
+      "src/data/viewArea.js",
       "src/i18n/index.js",
       "src/i18n/locale.js",
       "src/i18n/locales/ar.json",
@@ -1337,13 +1385,16 @@
       "src/i18n/locales/uk.json",
       "src/i18n/locales/zh-CN.json",
       "src/i18n/locales/zh-Hant.json",
-      "src/ui/unitLabels.js"
+      "src/ui/unitLabels.js",
+      "src/data/selectionCameraPolicy.js"
     ],
     "external": ["cesium"]
   },
   "military-flights": {
     "exports": ["./layers/military"],
     "modules": [
+      "src/layers/aircraft/displayFilters.js",
+      "src/data/flightDisplayFilters.js",
       "src/data/headingDegrees.js",
       "src/i18n/marker.js",
       "src/cyberSonar.js",
@@ -1381,6 +1432,7 @@
       "src/layers/military/snapshotRenderer.js",
       "src/data/inputOwnership.js",
       "src/data/modelEligibility.js",
+      "src/data/viewArea.js",
       "src/i18n/index.js",
       "src/i18n/locale.js",
       "src/i18n/locales/ar.json",
@@ -1393,7 +1445,8 @@
       "src/i18n/locales/ru.json",
       "src/i18n/locales/uk.json",
       "src/i18n/locales/zh-CN.json",
-      "src/i18n/locales/zh-Hant.json"
+      "src/i18n/locales/zh-Hant.json",
+      "src/data/selectionCameraPolicy.js"
     ],
     "external": ["cesium"]
   },
@@ -1430,6 +1483,9 @@
   "vessel-layer": {
     "exports": ["./layers/vessels"],
     "modules": [
+      "src/layers/vessels/displayFilters.js",
+      "src/data/vesselDisplayFilters.js",
+      "src/data/viewArea.js",
       "src/data/headingDegrees.js",
       "src/layers/vessels/cards.js",
       "src/layers/vessels/evidence.js",
@@ -1578,7 +1634,8 @@
       "src/i18n/locales/uk.json",
       "src/i18n/locales/zh-CN.json",
       "src/i18n/locales/zh-Hant.json",
-      "src/ui/unitLabels.js"
+      "src/ui/unitLabels.js",
+      "src/data/selectionCameraPolicy.js"
     ],
     "external": ["cesium", "satellite.js"]
   },
@@ -1618,7 +1675,8 @@
       "src/i18n/locales/ru.json",
       "src/i18n/locales/uk.json",
       "src/i18n/locales/zh-CN.json",
-      "src/i18n/locales/zh-Hant.json"
+      "src/i18n/locales/zh-Hant.json",
+      "src/data/selectionCameraPolicy.js"
     ],
     "external": ["cesium"]
   },
@@ -2224,6 +2282,14 @@
       "./standalone/catalog"
     ],
     "modules": [
+      "src/layers/vessels/displayFilters.js",
+      "src/data/vesselDisplayFilters.js",
+      "src/ui/vesselPanel.js",
+      "src/ui/stores/vesselPanel.js",
+      "src/layers/aircraft/displayFilters.js",
+      "src/data/flightDisplayFilters.js",
+      "src/ui/flightPanel.js",
+      "src/ui/stores/flightPanel.js",
       "src/sources/adsbFields.js",
       "src/data/headingDegrees.js",
       "src/data/distanceFormat.js",
@@ -2714,7 +2780,6 @@
       "src/styles/thermal.js",
       "src/ui/applicationShell.js",
       "src/ui/mobileShell.js",
-      "src/exclusiveSurfaces.js",
       "src/ui/localePicker.js",
       "src/ui/cyberSonarControls.js",
       "src/ui/locationNavigation.js",
@@ -2808,6 +2873,7 @@
       "src/ui/visualInput.js",
       "src/ui/visualPresets.js",
       "src/ui/visualSettings.js",
+      "src/ui/displayPreferences.js",
       "src/voice/commands.js",
       "src/voice/panel/actionObserver.js",
       "src/voice/panel/host.js",
@@ -2916,6 +2982,7 @@
       "src/data/transitProxy.js",
       "src/data/gtfsRealtime.js",
       "src/data/modelEligibility.js",
+      "src/data/viewArea.js",
       "src/layers/transit/trails.js",
       "src/layers/transit/movement.js",
       "src/layers/transit/qaMetrics.js",
@@ -2928,6 +2995,9 @@
       "src/sources/overpassRoads.js",
       "src/ui/aircraftDisplay.js",
       "src/ui/layerBindings.js",
+      "src/ui/chesterCountyPanel.js",
+      "src/ui/stores/chesterCountyPanel.js",
+      "src/ui/views/panels/ChesterCountyPanel.vue",
       "src/ui/displayBindings.js",
       "src/ui/shellFacade.js",
       "src/voice/realtimePreferences.js",
@@ -3149,7 +3219,6 @@
       "src/ui/stores/cockpit.js",
       "src/ui/stores/locale.js",
       "src/ui/stores/providerSettings.js",
-      "src/ui/stores/sceneSharing.js",
       "src/ui/stores/voice.js",
       "src/ui/stores/location.js",
       "src/ui/stores/display.js",
@@ -3190,7 +3259,15 @@
       "src/data/placeNames.js",
       "src/data/local_data/us_census_places/files.js",
       "src/data/local_data/wof_neighborhoods/files.js",
-      "src/ui/cyberAccentSettings.js"
+      "src/ui/displayAccentSettings.js",
+      "src/data/selectionCameraPolicy.js",
+      "src/ui/stores/savedViews.js",
+      "src/ui/viewSession.js",
+      "src/ui/savedViews.js",
+      "src/ui/objectInspection.js",
+      "src/ui/focusReturn.js",
+      "src/ui/stores/objectInspection.js",
+      "src/data/selectionPopupPreference.js"
     ],
     "external": [
       "hls.js",
@@ -3215,6 +3292,10 @@
   "application-layer-construction": {
     "exports": ["./application/layers"],
     "modules": [
+      "src/layers/vessels/displayFilters.js",
+      "src/data/vesselDisplayFilters.js",
+      "src/layers/aircraft/displayFilters.js",
+      "src/data/flightDisplayFilters.js",
       "src/sources/adsbFields.js",
       "src/data/headingDegrees.js",
       "src/data/distanceFormat.js",
@@ -3690,6 +3771,7 @@
       "src/data/detectionRenderDemand.js",
       "src/data/detectionPresentation.js",
       "src/data/modelEligibility.js",
+      "src/data/viewArea.js",
       "src/app/layers/recentImagery.js",
       "src/layers/recentImagery/index.js",
       "src/layers/recentImagery/source.js",
@@ -3801,7 +3883,9 @@
       "src/data/placeBoundaries.js",
       "src/data/placeNames.js",
       "src/data/local_data/us_census_places/files.js",
-      "src/data/local_data/wof_neighborhoods/files.js"
+      "src/data/local_data/wof_neighborhoods/files.js",
+      "src/data/selectionCameraPolicy.js",
+      "src/data/selectionPopupPreference.js"
     ],
     "external": [
       "hls.js",
@@ -3982,6 +4066,7 @@
       "src/ui/visualInput.js",
       "src/ui/visualPresets.js",
       "src/ui/visualSettings.js",
+      "src/ui/displayPreferences.js",
       "src/ui/stores/display.js",
       "src/ui/stores/owners.js",
       "src/ui/vueRuntime.js",
@@ -4005,7 +4090,7 @@
       "src/ui/rail/fieldValue.js",
       "src/ui/kit/UiSlider.js",
       "src/ui/i18n.js",
-      "src/ui/cyberAccentSettings.js"
+      "src/ui/displayAccentSettings.js"
     ],
     "external": ["cesium", "vue", "pinia", "vue-i18n"]
   },
@@ -4681,7 +4766,8 @@
       "src/data/geoImportImages.js",
       "src/data/geoImportPins.js",
       "src/layers/streetLevel/tileMath.js",
-      "src/layers/streetLevel/view.js"
+      "src/layers/streetLevel/view.js",
+      "src/data/selectionPopupPreference.js"
     ],
     "external": ["cesium"]
   },
@@ -4742,6 +4828,7 @@
       "src/tools/queries/surveillance.js",
       "src/tools/queries/infrastructure.js",
       "src/tools/queries/events.js",
+      "src/tools/queries/chesterCounty.js",
       "src/data/bhoteKoshiFloodPath.js",
       "src/tools/functions.js",
       "src/tools/surfaces.js",
@@ -4787,6 +4874,7 @@
     "modules": [
       "src/sources/adsbFields.js",
       "src/tools/services.js",
+      "src/layers/chesterCountyEms/source.js",
       "src/layers/bikeshare/registry.js",
       "src/layers/bikeshare/source.js",
       "src/layers/cctv/source.js",

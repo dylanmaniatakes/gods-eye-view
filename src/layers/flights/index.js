@@ -10,6 +10,7 @@ import { createLifecycle } from './lifecycle.js';
 import { createEvidence } from './evidence.js';
 import { createTesting } from './testing.js';
 import { createQueries } from './queries.js';
+import { createAircraftDisplayFilters } from '../aircraft/displayFilters.js';
 /** Compose one civil-flight layer with application-owned scene services. */
 export function createCivilFlightLayer({
   source,
@@ -20,6 +21,7 @@ export function createCivilFlightLayer({
   const parts = {};
   const layer = {};
   const context = { flightState, services, parts, layer, resolveAsset };
+  parts.display = createAircraftDisplayFilters(context);
   parts.rendering = createRendering(context);
   parts.motion = createMotion(context);
   parts.tracking = createTracking(context);
@@ -58,6 +60,7 @@ export function createCivilFlightLayer({
     parts.queries.methods,
     parts.lifecycle.methods,
     parts.ingestion.methods,
+    parts.display.methods,
   );
   Object.defineProperty(layer, 'testing', { value: parts.testing });
   return layer;

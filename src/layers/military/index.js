@@ -8,6 +8,7 @@ import { createIngestion } from './ingestion.js';
 import { createLifecycle } from './lifecycle.js';
 import { createTesting } from './testing.js';
 import { createQueries } from './queries.js';
+import { createAircraftDisplayFilters } from '../aircraft/displayFilters.js';
 /** Compose one military-flight layer with application-owned scene services. */
 export function createMilitaryFlightLayer({
   source,
@@ -18,6 +19,7 @@ export function createMilitaryFlightLayer({
   const parts = {};
   const layer = {};
   const context = { flightState, services, parts, layer, resolveAsset };
+  parts.display = createAircraftDisplayFilters(context);
   parts.rendering = createRendering(context);
   parts.motion = createMotion(context);
   parts.tracking = createTracking(context);
@@ -51,6 +53,7 @@ export function createMilitaryFlightLayer({
     parts.queries.methods,
     parts.lifecycle.methods,
     parts.ingestion.methods,
+    parts.display.methods,
   );
   Object.defineProperty(layer, 'testing', { value: parts.testing });
   return layer;

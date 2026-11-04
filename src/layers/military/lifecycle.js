@@ -219,6 +219,7 @@ export function createLifecycle({
      * @param {Cesium.Viewer} viewer - The Cesium viewer instance
      */
     destroy(viewer) {
+      parts.display?.resetVisuals();
       flightState.lifetime.abort();
       parts.controller._abortActiveUpdates();
       releaseContinuousRender('military'); // direct-destroy path (perf wave 2 fix)

@@ -1,3 +1,4 @@
+import { selectionMovesCamera } from '../data/selectionCameraPolicy.js';
 import { t } from '../i18n/index.js';
 
 export function _initCctvPanel() {
@@ -81,10 +82,14 @@ export function _initCctvPanel() {
     // Picking a camera from the dropdown flies to it. The dropdown lists the
     // cameras in view (and the active camera, which may be far away), so a
     // bare selection could leave the view somewhere else.
-    this.actions.runExplicitFocus(
-      () => (this.cctv.selectCamera(cameraId) ? cameraId : null),
-      (selectedId) => this.cctv.focusCamera(selectedId, 2.2),
-    );
+    if (selectionMovesCamera()) {
+      this.actions.runExplicitFocus(
+        () => (this.cctv.selectCamera(cameraId) ? cameraId : null),
+        (selectedId) => this.cctv.focusCamera(selectedId, 2.2),
+      );
+    } else {
+      this.cctv.selectCamera(cameraId);
+    }
     this.actions.setParams({ selectedCameraId: cameraId }, { origin: 'user' });
   });
 

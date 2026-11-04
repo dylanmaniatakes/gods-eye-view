@@ -279,6 +279,34 @@ test('lazy coverage inserts nothing at catalog init, then materializes only elig
   );
 });
 
+test('a grouped venue materializes coverage only for its selected court', () => {
+  const records = Array.from({ length: 8 }, (_, index) => ({
+    camera: {
+      ...UNCLAMPED_CAMERA,
+      id: `court-${index}`,
+      groupId: 'bounce-pickleball-malvern',
+    },
+    coverageEntities: [],
+    projection: null,
+  }));
+  try {
+    _setCctvCoverageStateForTest({
+      viewer: { entities: { add: (entity) => entity } },
+      records,
+      activeCameraId: 'court-5',
+    });
+    refreshCoverageStyles();
+    assert.deepEqual(
+      records
+        .filter((record) => record.coverageEntities.length)
+        .map((record) => record.camera.id),
+      ['court-5'],
+    );
+  } finally {
+    _setCctvCoverageStateForTest({ enabled: false });
+  }
+});
+
 test('default COVERAGE refresh materializes the active and visible camera frustums', () => {
   const records = Array.from({ length: 20 }, (_, index) => ({
     camera: {

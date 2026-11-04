@@ -39,6 +39,10 @@ const PINNABLE_PANEL_IDS = new Set(
 /** Standard map-view panels cleared out of the way on a fresh Cockpit entry. */
 const COCKPIT_ENTRY_COLLAPSE_PANEL_IDS = Object.freeze([
   'data-panel',
+  'chester-county-panel',
+  'object-inspection-panel',
+  'flight-panel',
+  'vessel-panel',
   'cctv-panel',
   'weather-panel',
   'recent-imagery-panel',

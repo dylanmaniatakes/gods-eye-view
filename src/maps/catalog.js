@@ -31,6 +31,13 @@ export const MAP_STACKS = [
     requiresIon: false,
   },
   {
+    id: 'esri-hybrid',
+    label: 'Esri Satellite + Labels', // i18n-ignore: imagery product name
+    shortLabel: 'HYBRID',
+    kind: 'esri-imagery',
+    requiresIon: false,
+  },
+  {
     id: 'osm',
     label: 'OSM', // i18n-ignore: imagery product name
     shortLabel: 'OSM',

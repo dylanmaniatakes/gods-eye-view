@@ -512,11 +512,21 @@ export function createGeometry({ state: layerState, services, parts, source }) {
 
     ranked.sort((a, b) => a.distKm - b.distKm);
 
-    const primary = ranked.filter(
+    // A venue contributes one coverage overlay. The active court sorts first,
+    // so switching streams also replaces its provisional overlay.
+    const groups = new Set();
+    const venues = ranked.filter(({ record }) => {
+      const group = record.camera.groupId;
+      if (!group) return true;
+      if (groups.has(group)) return false;
+      groups.add(group);
+      return true;
+    });
+    const primary = venues.filter(
       (entry) =>
         entry.distKm <= COVERAGE_NEIGHBOR_RADIUS_KM || entry.distKm === -1,
     );
-    const fallback = ranked;
+    const fallback = venues;
     const chosen = (
       primary.length >= COVERAGE_NEIGHBOR_LIMIT ? primary : fallback
     )

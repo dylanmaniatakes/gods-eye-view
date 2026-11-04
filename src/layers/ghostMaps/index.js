@@ -1,3 +1,4 @@
+import { selectionPopupPreference } from '../../data/selectionPopupPreference.js';
 import * as Cesium from 'cesium';
 import {
   decodeXml,
@@ -153,6 +154,7 @@ function anchorOf(geometry) {
  */
 export function createGhostMapsLayer({
   source,
+  selectionPopups = selectionPopupPreference,
   overlayHost = null,
   screenSpaceEventHandlerFactory = null,
   picking = null,
@@ -172,6 +174,7 @@ export function createGhostMapsLayer({
   let _queue = Promise.resolve();
   let _clickHandler = null;
   let _rowListener = null;
+  let _popupUnsubscribe = null;
   let _selectedKey = null;
   let _selectedCardId = null;
   let _selectedLink = null;
@@ -502,6 +505,16 @@ export function createGhostMapsLayer({
       );
       return;
     }
+    if (!selectionPopups.get()) {
+      _selectedCardId = null;
+      _selectedLink = null;
+      overlayHost.setEntries(
+        GHOSTMAPS_OVERLAY_SOURCE_ID,
+        [],
+        CARD_HOST_OPTIONS,
+      );
+      return;
+    }
     const { fields, links } = parseDescriptionFields(feature.description);
     _selectedLink = links[0] || null;
     const heading = [t(PRODUCT_LABELS[product?.id] || product?.title || '')];
@@ -639,6 +652,30 @@ export function createGhostMapsLayer({
     name: 'S2 GhostMaps',
     icon: '👻',
     source: 'S2 Underground',
+    /** Public selected-report details; excludes Cesium resources. */
+    getInspectionInfo() {
+      const { product, feature } = _selectedKey ? featureFor(_selectedKey) : {};
+      if (!_enabled || !feature) return null;
+      const { fields, links } = parseDescriptionFields(feature.description);
+      const position = feature.anchor;
+      return {
+        id: _selectedKey,
+        label: feature.name || feature.folder || product?.title,
+        latitude: position?.[1],
+        longitude: position?.[0],
+        properties: {
+          product: product?.title,
+          folder: feature.folder,
+          ...Object.fromEntries(
+            fields.map((field, index) => [
+              field.label || String(index + 1),
+              field.value,
+            ]),
+          ),
+          sources: links,
+        },
+      };
+    },
     // Pushes arrive within seconds over the event stream; this interval is
     // the backstop if the stream is down.
     updateInterval: 300000,
@@ -650,6 +687,10 @@ export function createGhostMapsLayer({
 
     enable() {
       _enabled = true;
+      _popupUnsubscribe ??= selectionPopups.subscribe(() => {
+        publishCard();
+        render();
+      });
       _lifetime = new AbortController();
       if (_expiryTimer === null)
         _expiryTimer = setInterval(expireEvents, 60_000);
@@ -670,6 +711,8 @@ export function createGhostMapsLayer({
 
     disable() {
       _enabled = false;
+      _popupUnsubscribe?.();
+      _popupUnsubscribe = null;
       clearInterval(_expiryTimer);
       _expiryTimer = null;
       _lifetime.abort();

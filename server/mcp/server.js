@@ -1,3 +1,5 @@
+import { viewSessionTools } from './viewSessions.js';
+import { createRemoteViewRelay } from './viewSessionClient.js';
 /** The local MCP server: Core's tools over services backed by a running app. */
 
 import { randomBytes } from 'node:crypto';
@@ -26,6 +28,7 @@ const INSTRUCTIONS =
 /** Construct the local MCP server for Core's tools. */
 export function createLocalMcpServer({
   apiBase = DEFAULT_API_BASE,
+  viewSessions,
   fetchImpl,
   panelKey = randomBytes(32).toString('base64url'),
 } = {}) {
@@ -40,7 +43,12 @@ export function createLocalMcpServer({
   return createMcpServer({
     catalog: catalogForSurface(
       composeCatalog({
-        tools: coreTools,
+        tools: [
+          ...coreTools,
+          ...viewSessionTools(
+            viewSessions ?? createRemoteViewRelay({ apiBase, fetchImpl }),
+          ),
+        ],
         services: createLocalToolServices({ apiBase, fetchImpl, panelKey }),
       }),
       'mcp',

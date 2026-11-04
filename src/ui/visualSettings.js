@@ -43,13 +43,19 @@ import {
   setCyberSonarEnabled,
 } from '../cyberSonar.js';
 import { cyberVisualDefaultsForHudTransition } from '../hudLayouts.js';
+import { HUD_LAYOUTS } from '../hudLayoutPolicy.js';
 import {
-  applyCyberAccentTheme,
-  normalizeCyberAccent,
-  readCyberAccentPreference,
-} from './cyberAccentSettings.js';
+  readDisplayPreferences,
+  writeDisplayPreferences,
+} from './displayPreferences.js';
+import {
+  applyDisplayAccentTheme,
+  normalizeDisplayAccent,
+  readDisplayAccentPreferences,
+} from './displayAccentSettings.js';
 const DETECTION_ALLOCATION_STORAGE_KEY = 'gev:detection-allocation:v1';
 const CYBER_ACCENT_STORAGE_KEY = 'gev:cyber-accent:v1';
+const DISPLAY_ACCENT_STORAGE_KEY = 'gev:display-accents:v1';
 
 /** Own visual preferences, detection overrides and display-control state. */
 export class VisualSettings {
@@ -244,18 +250,94 @@ export class VisualSettings {
     this._detectionAllocationPreference = normalizeAllocationStrategy(
       storedDetectionAllocation,
     );
-    this._cyberAccent = readCyberAccentPreference(null);
+    this._displayAccents = readDisplayAccentPreferences(null);
     try {
-      this._cyberAccent = readCyberAccentPreference(
+      this._displayAccents = readDisplayAccentPreferences(
+        localStorage.getItem(DISPLAY_ACCENT_STORAGE_KEY),
         localStorage.getItem(CYBER_ACCENT_STORAGE_KEY),
       );
     } catch {
       /* unavailable storage */
     }
-    applyCyberAccentTheme(document.documentElement, this._cyberAccent);
+    this._applyDisplayAccent();
   }
   get hud() {
     return this.readHud();
+  }
+
+  /** Run after startup defaults; an explicit shared view owns its visual fields. */
+  restoreLocalPreferences({ sharedView = false } = {}) {
+    let storage;
+    try {
+      storage = globalThis.localStorage;
+    } catch {
+      /* unavailable storage */
+    }
+    const saved = readDisplayPreferences(storage, {
+      styles: STYLES,
+      layouts: HUD_LAYOUTS,
+      maps: this.mapStackController?.getStacks?.().map(({ id }) => id) || [],
+    });
+    if (saved) {
+      const { sonar, mapStack, ...visual } = saved;
+      if (sonar) {
+        applyCyberSonarSettings(sonar);
+        if (typeof sonar.enabled === 'boolean')
+          setCyberSonarEnabled(sonar.enabled);
+        this._syncCyberSonarControl();
+      }
+      if (!sharedView) {
+        // Without a map switch, all visual writes occur synchronously before
+        // restoreShareState's final await; startup cannot save defaults over them.
+        void this.restoreShareState(visual).catch((error) =>
+          console.warn('[Display] Could not restore preferences:', error),
+        );
+        if (mapStack && this.mapStackController?.isStackAvailable(mapStack)) {
+          this._localMapPreference = mapStack;
+          void Promise.resolve(
+            this._setMapStack(mapStack, { syncShare: false }),
+          )
+            .catch((error) =>
+              console.warn('[Display] Could not restore map:', error),
+            )
+            .finally(() => {
+              this._localMapPreference = null;
+              this.persistLocalPreferences();
+            });
+        }
+      }
+    }
+    this._localPreferencesReady = true;
+  }
+
+  persistLocalPreferences() {
+    if (!this._localPreferencesReady) return;
+    let storage;
+    try {
+      storage = globalThis.localStorage;
+    } catch {
+      return;
+    }
+    const { bloomEnabled, sharpenEnabled, options } = this._readShareState();
+    const uniforms = STYLES[this.activeStyle]?.uniforms;
+    const styleParams =
+      uniforms &&
+      Object.fromEntries(
+        Object.keys(uniforms).map((name) => [
+          name,
+          this.stages[this.activeStyle]?.uniforms[name],
+        ]),
+      );
+    writeDisplayPreferences(storage, {
+      ...options,
+      mapStack: this._localMapPreference || options.mapStack,
+      bloom: bloomEnabled,
+      sharpen: sharpenEnabled,
+      celestialRing: options.celestialRingEnabled,
+      style: this.activeStyle,
+      styleParams,
+      sonar: { enabled: isCyberSonarEnabled(), ...readCyberSonarSettings() },
+    });
   }
   get cockpitView() {
     return this.readCockpit();
@@ -492,7 +574,7 @@ export class VisualSettings {
       hud: {
         visible: this._hudVisibleShown,
         variant: this._hudVariantShown,
-        accent: this._presentCyberAccent(),
+        accent: this._presentDisplayAccent(),
       },
       sonar: this._sonarShown,
       scope: {
@@ -557,9 +639,13 @@ export class VisualSettings {
     this.store.publish(this._presentDisplay());
   }
 
-  /** The Cyber accent choices shown in Display; the theme owner applies the CSS. */
-  _presentCyberAccent() {
-    const accent = normalizeCyberAccent(this._cyberAccent);
+  /** The active template's accent choices shown in Display. */
+  _presentDisplayAccent() {
+    const layout = this._hudVariantShown || 'tactical';
+    const accent = normalizeDisplayAccent(
+      this._displayAccents?.[layout],
+      layout,
+    );
     return {
       selected: accent.id,
       customColor: accent.customColor,
@@ -567,24 +653,46 @@ export class VisualSettings {
   }
 
   /**
-   * Set the locally persisted Cyber accent. This is a browser preference, not
+   * Set the active template's locally persisted accent. This is a browser preference, not
    * a shared-view setting: a link still opens with the recipient's own accent.
    */
-  _setCyberAccent(id, customColor) {
-    const previous = normalizeCyberAccent(this._cyberAccent);
-    const next = normalizeCyberAccent({
-      id,
-      customColor: customColor ?? previous.customColor,
-    });
-    this._cyberAccent = next;
-    applyCyberAccentTheme(document.documentElement, next);
+  _setDisplayAccent(id, customColor) {
+    const layout = this._hudVariantShown || 'tactical';
+    const previous = normalizeDisplayAccent(
+      this._displayAccents?.[layout],
+      layout,
+    );
+    const next = normalizeDisplayAccent(
+      {
+        id,
+        customColor: customColor ?? previous.customColor,
+      },
+      layout,
+    );
+    this._displayAccents = {
+      ...readDisplayAccentPreferences(null),
+      ...this._displayAccents,
+      [layout]: next,
+    };
+    this._applyDisplayAccent();
     try {
-      localStorage.setItem(CYBER_ACCENT_STORAGE_KEY, JSON.stringify(next));
+      localStorage.setItem(
+        DISPLAY_ACCENT_STORAGE_KEY,
+        JSON.stringify(this._displayAccents),
+      );
     } catch {
       /* best effort */
     }
     this._publishDisplay();
     return next;
+  }
+
+  _applyDisplayAccent() {
+    const layout = this._hudVariantShown || 'tactical';
+    applyDisplayAccentTheme(
+      document.documentElement,
+      normalizeDisplayAccent(this._displayAccents?.[layout], layout),
+    );
   }
 
   _getBloomIntensity() {
@@ -738,6 +846,7 @@ export class VisualSettings {
       this._cyberStyleUserSelected = false;
     }
     this._hudVariantShown = nextVariant;
+    this._applyDisplayAccent();
     this._publishDisplay();
     const visualDefaults = cyberVisualDefaultsForHudTransition(
       previousVariant,
@@ -794,6 +903,7 @@ export class VisualSettings {
   _setCyberSonarEnabled(enabled = !isCyberSonarEnabled()) {
     const next = setCyberSonarEnabled(!!enabled);
     this._syncCyberSonarControl();
+    this.persistLocalPreferences();
     this.services.governorRequestRender('cyber-sonar-toggle');
     return next;
   }
@@ -803,6 +913,7 @@ export class VisualSettings {
     if (!Object.hasOwn(settings, name)) return settings;
     const next = applyCyberSonarSettings({ ...settings, [name]: value });
     this._syncCyberSonarControl();
+    this.persistLocalPreferences();
     this.services.governorRequestRender(`cyber-sonar-${name}`);
     return next;
   }
@@ -1636,6 +1747,7 @@ export class VisualSettings {
   _syncHudControls() {
     this._hudVisibleShown = Boolean(this.hud.visible);
     this._hudVariantShown = this.hud.getVariant();
+    this._applyDisplayAccent();
     this._publishDisplay();
     this._scheduleAdaptivePanelLayout({ settle: true });
   }
@@ -1646,6 +1758,7 @@ export class VisualSettings {
     this._layoutRightPanels();
   }
   stop() {
+    this._localPreferencesReady = false;
     this._lifetime.destroy();
     if (this._parametersToken) this.store.detach(this._parametersToken);
     this._parametersToken = null;

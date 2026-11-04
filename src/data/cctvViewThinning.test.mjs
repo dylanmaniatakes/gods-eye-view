@@ -193,6 +193,83 @@ test('a disabled layer skips the view pass', () => {
   assert.deepEqual(_viewRecordIdsForTest(), []);
 });
 
+test('zooming out reduces dense camera markers and zooming back in restores them', () => {
+  const { records, screenByPosition } = recordsAt(
+    Array.from({ length: 400 }, (_, i) => [
+      (i % 20) * 0.0001,
+      Math.floor(i / 20) * 0.0001,
+    ]),
+    (i) => ({ x: 40 + (i % 20) * 35, y: 40 + Math.floor(i / 20) * 25 }),
+  );
+  _setCctvCoverageStateForTest({
+    viewer: viewerAt(300, screenByPosition),
+    records,
+  });
+  refreshHorizonCulling();
+  const close = shownIds(records);
+  assert.equal(close.length, records.length);
+  _setCctvCoverageStateForTest({
+    viewer: viewerAt(500_000, screenByPosition),
+    records,
+    activeCameraId: 'cam-399',
+  });
+  refreshHorizonCulling();
+  assert.ok(shownIds(records).length <= 40);
+  assert.ok(
+    records[399].billboard.show,
+    'the selected camera survives zoom thinning',
+  );
+  assert.equal(
+    cctvLayer.getUIState().cameras.length,
+    400,
+    'zoom does not remove sources from the catalog',
+  );
+  _setCctvCoverageStateForTest({
+    viewer: viewerAt(300, screenByPosition),
+    records,
+  });
+  refreshHorizonCulling();
+  assert.deepEqual(shownIds(records), close);
+});
+
+test('wide views have a hard marker budget even when ground cells are distinct', () => {
+  const { records, screenByPosition } = recordsAt(
+    Array.from({ length: 100 }, (_, i) => [
+      (i % 10) * 0.2,
+      Math.floor(i / 10) * 0.2,
+    ]),
+    (i) => ({ x: 50 + (i % 10) * 180, y: 50 + Math.floor(i / 10) * 180 }),
+  );
+  const viewer = viewerAt(2_000_000, screenByPosition);
+  viewer.camera.frustum.fovy = 0.01;
+  viewer.scene.canvas = { clientWidth: 3000, clientHeight: 2000 };
+  _setCctvCoverageStateForTest({ viewer, records, activeCameraId: 'cam-99' });
+  refreshHorizonCulling();
+  assert.equal(shownIds(records).length, 20);
+  assert.ok(records[99].billboard.show);
+  assert.equal(
+    refreshHorizonCulling(),
+    false,
+    'the same view keeps its winners',
+  );
+});
+
+test('wide-view screen spacing removes overlaps between different ground cells', () => {
+  const { records, screenByPosition } = recordsAt(
+    [
+      [0, 0],
+      [1, 0],
+      [2, 0],
+    ],
+    (i) => ({ x: 300 + i * 5, y: 300 }),
+  );
+  const viewer = viewerAt(100_000, screenByPosition);
+  viewer.camera.frustum.fovy = 0.01;
+  _setCctvCoverageStateForTest({ viewer, records, activeCameraId: 'cam-2' });
+  refreshHorizonCulling();
+  assert.deepEqual(shownIds(records), ['cam-2']);
+});
+
 test('UI state builds the full camera list only when it is read', () => {
   const { records, screenByPosition } = recordsAt(CLUSTER.slice(0, 2));
   _setCctvCoverageStateForTest({
@@ -248,4 +325,64 @@ test('the camera picker lists the view, with the active camera first', () => {
     'the off-screen active camera leads, then what is in view',
   );
   assert.equal(state.cameras.length, 3, 'the full list is still every camera');
+});
+
+test('one venue marker keeps every named court in the picker without showing extra map icons', () => {
+  const { records, screenByPosition } = recordsAt(
+    Array.from({ length: 9 }, () => [0, 0]),
+    (index) => (index === 8 ? { x: WIDTH * 3, y: 0 } : { x: 100, y: 100 }),
+  );
+  for (const record of records.slice(0, 8))
+    record.camera.groupId = 'bounce-pickleball-malvern';
+  records[8].camera.groupId = 'another-venue';
+  _setCctvCoverageStateForTest({
+    viewer: viewerAt(20_000, screenByPosition),
+    records,
+  });
+  refreshHorizonCulling();
+  assert.equal(
+    shownIds(records).length,
+    1,
+    'the venue still has one representative icon',
+  );
+  const index = cctvLayer.getUIState().cameraIndex;
+  assert.deepEqual(
+    index.map((camera) => camera.id).sort(),
+    records.slice(0, 8).map(({ camera }) => camera.id),
+  );
+  assert.equal(
+    cctvLayer.getUIState().cameraIndex,
+    index,
+    'venue expansion stays cached',
+  );
+
+  _setCctvCoverageStateForTest({
+    viewer: viewerAt(20_000, screenByPosition),
+    records,
+    activeCameraId: 'cam-3',
+  });
+  refreshHorizonCulling();
+  const selected = cctvLayer.getUIState().cameraIndex;
+  assert.equal(selected[0].id, 'cam-3');
+  assert.deepEqual(
+    shownIds(records),
+    ['cam-3'],
+    'the selected court owns the venue marker',
+  );
+  assert.equal(
+    new Set(selected.map((camera) => camera.id)).size,
+    8,
+    'selecting a court neither hides siblings nor adds duplicates',
+  );
+  _setCctvCoverageStateForTest({
+    viewer: viewerAt(300, screenByPosition),
+    records,
+  });
+  refreshHorizonCulling();
+  assert.equal(
+    shownIds(records).length,
+    1,
+    'street zoom does not stack co-located court icons',
+  );
+  assert.equal(cctvLayer.getUIState().cameraIndex.length, 8);
 });

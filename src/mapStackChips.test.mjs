@@ -49,6 +49,13 @@ const CONTROLLER_STACKS = [
     unavailableReason: null,
   },
   {
+    id: 'esri-hybrid',
+    label: 'Esri Satellite + Labels',
+    requiresIon: false,
+    available: true,
+    unavailableReason: null,
+  },
+  {
     id: 'osm',
     label: 'OSM',
     requiresIon: false,
@@ -77,21 +84,36 @@ function publishedChips(stacks, activeId) {
   return views.at(-1).chips;
 }
 
-test('the row presents exactly the five owner-approved sources', () => {
+test('the row presents the approved sources including keyless satellite labels', () => {
   const chips = mapStackChipModels(CONTROLLER_STACKS, 'photoreal');
   assert.deepEqual(
     chips.map((chip) => chip.id),
-    ['photoreal', 'bing-aerial', 'bing-labels', 'esri-imagery', 'osm'],
+    [
+      'photoreal',
+      'bing-aerial',
+      'bing-labels',
+      'esri-imagery',
+      'esri-hybrid',
+      'osm',
+    ],
   );
   assert.deepEqual(
     chips.map((chip) => chip.label),
-    ['Google 3D', 'Bing Aerial', 'Bing Labels', 'Esri Satellite', 'OSM'],
+    [
+      'Google 3D',
+      'Bing Aerial',
+      'Bing Labels',
+      'Esri Satellite',
+      'Esri Satellite + Labels',
+      'OSM',
+    ],
   );
   assert.deepEqual(PRESENTED_MAP_STACK_IDS, [
     'photoreal',
     'bing-aerial',
     'bing-labels',
     'esri-imagery',
+    'esri-hybrid',
     'osm',
   ]);
 });
@@ -105,7 +127,7 @@ test('internal and future stacks stay outside the approved presentation set', ()
   ];
   const chips = mapStackChipModels(withHybrid, 'photoreal');
 
-  assert.equal(chips.length, 5);
+  assert.equal(chips.length, 6);
   assert.ok(chips.every((chip) => chip.id !== 'hybrid'));
 });
 

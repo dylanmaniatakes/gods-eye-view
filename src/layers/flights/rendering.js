@@ -38,6 +38,7 @@ import {
   COURSE_MAX_DPS,
 } from './policy.js';
 import { AIRCRAFT_ENVIRONMENT_MAP_OPTIONS } from '../../data/aircraftModelLighting.js';
+import { createViewArea } from '../../data/viewArea.js';
 
 export function createRendering({
   flightState,
@@ -57,6 +58,7 @@ export function createRendering({
   } = services.focus;
   const { applyAircraftBillboardTreatment, applyAircraftModelTreatment } =
     services.recession;
+  const viewArea = createViewArea();
 
   /** True while this contact's latest poll broadcast an emergency code. */
 
@@ -884,6 +886,8 @@ export function createRendering({
 
     const occluder = horizonOccluder(camera);
     const focusTarget = getFocusTarget();
+    viewArea.update(camera);
+    parts.display?.prepare(renderTime);
 
     // 3D model regime: only when enabled AND the camera is zoomed in past the altitude ceiling.
     // Drop all models the moment we leave it (toggled off / zoomed out) so billboards resume.
@@ -922,6 +926,11 @@ export function createRendering({
       const cand = [];
       for (const [icao, bb] of flightState._billboards) {
         if (icao === flightState._trackedIcao) continue;
+        if (parts.display && !parts.display.allows(icao)) continue;
+        // Retain cached off-screen models when slots permit, but do not start
+        // loading new ones outside the warm margin during a pan.
+        if (!viewArea.contains(bb.position) && !flightState._models.has(icao))
+          continue;
         // A converted TR-3B renders as a billboard and can never take a model, so
         // it must not occupy a CAP SLOT either — excluded here at selection time,
         // not just at the handoff below, or accumulated conversions would starve
@@ -970,11 +979,27 @@ export function createRendering({
 
       const info = flightState.records.data.get(icao24);
 
-      const dr = parts.motion._deadReckon(
-        icao24,
-        flightState._scratchFleetPos,
-        renderTime,
-      );
+      const dr =
+        parts.display?.positionFor(icao24) ||
+        parts.motion._deadReckon(
+          icao24,
+          flightState._scratchFleetPos,
+          renderTime,
+        );
+      // Test the current estimate, never the parked billboard position: a
+      // moving contact must be able to enter the warm margin without a poll.
+      // Keep data/motion live, but avoid terrain work and GPU buffer writes
+      // for contacts well outside the view. Tracking has its own full-rate path.
+      if (
+        (parts.display && !parts.display.allows(icao24)) ||
+        !viewArea.contains(dr || bb.position)
+      ) {
+        if (bb.show) bb.show = false;
+        const model = flightState._models.get(icao24);
+        if (model?.show) model.show = false;
+        flightState._displayCourse.delete(icao24);
+        continue;
+      }
       // The dead-reckoned point drifts away from the fix whose cell supplied the
       // height, so a grounded contact's sprite ends up under the mesh it taxied
       // (or coasted) over. Re-floor at the DISPLAYED coordinate — read-only, and

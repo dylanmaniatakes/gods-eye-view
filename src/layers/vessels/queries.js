@@ -1,5 +1,6 @@
 import * as Cesium from 'cesium';
 import { t, msg } from '../../i18n/index.js';
+import { normalizeVesselType } from '../../data/vesselTypes.js';
 
 // ingestion.js is a portable export (package.json) and writes English labels
 // into state; translate the known ones here, pass anything else through.
@@ -448,6 +449,27 @@ export function createQueries({
      * Get info about the currently selected vessel.
      * @returns {{ mmsi: string, name: string, latitude: number, longitude: number, speedKt: number|null, course: number|null, type: string }|null}
      */
+    /** All public fields of the live selected vessel for the side inspector. */
+    getInspectionInfo() {
+      const record = state.selectedRecord;
+      if (!record) return null;
+      return {
+        id: record.mmsi,
+        mmsi: record.mmsi,
+        name: record.name,
+        latitude: record.lat,
+        longitude: record.lon,
+        type: record.type,
+        imo: record.imo,
+        destination: record.destination,
+        speedKt: record.speed,
+        headingDeg: record.heading,
+        courseDeg: record.course,
+        positionTimeUtc: record.lastPositionUtc,
+        stale: state.feed.stale || (record.missedRefreshes || 0) > 0,
+        missedRefreshes: record.missedRefreshes || 0,
+      };
+    },
     getSelectedInfo() {
       const record = state.selectedRecord;
       if (!record) return null;
@@ -504,6 +526,11 @@ export function createQueries({
           id: record.name || record.mmsi || 'VESSEL',
           type: 'SEA',
           skipLabel: record === selected,
+          // The selected vessel already owns a full-detail card. Other
+          // civilian ships keep their markers/brackets without a second,
+          // detection-owned nameplate. AIS type 35 is explicitly military.
+          suppressLabel:
+            normalizeVesselType(record.type).toUpperCase() !== 'MILITARY',
           klass: record.type
             ? String(record.type).toUpperCase().slice(0, 14)
             : undefined,

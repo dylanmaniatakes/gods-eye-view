@@ -1,19 +1,42 @@
 # Chester County, Pennsylvania incidents
 
-Enable **Data Layers → Events → Chester County, PA incidents**, then choose
-**View Chester County**. This layer now includes all three public WebCAD tables:
+Enable **Data Layers → Events → Chester County, PA incidents**, then open
+**CHESCO INCIDENTS** on the right rail. Its **View Chester County** action moves
+the map to the county. The right-side app holds the active list, coverage/freshness
+status and county actions; Data Layers retains the layer toggle, standard feed
+count and category filters. Disabling the layer hides the app and its launcher.
+An enabled empty or failed feed keeps the app available, showing its empty/stale/error state.
+The list updates from the existing feed without a separate polling loop.
+
+The **Fire**, **EMS** and **Police / traffic** toggles in Data Layers and the
+app stay in sync and filter the map icons and active list together. All three
+start on. Police / traffic corresponds to the public WebCAD Traffic table,
+not a complete police-call feed. The app shows
+matching/total counts; switching every category off keeps the app available with
+**No matching incidents**. Excluding the selected report closes its map card and
+cancels its pending detail lookup. Filters apply in the current app session;
+MCP can query the full public feed or apply its own category filter.
+
+This layer includes all three public WebCAD tables:
 
 - **Fire:** orange flame icon.
 - **EMS:** red cross icon.
 - **Traffic:** red/blue police-siren icon.
 
-Each resolved report has its own marker labeled with the reported intersection
-or address and **Approximate intersection**, **Approximate address**, or
-**Approximate named place**. Selecting
-a list item opens its details and flies to street scale. The card retains the
-incident number/type, original location, municipality, dispatch time, and
-station or agency. Times are labeled America/New_York. **County WebCAD** opens
-the official source. Coverage remains Chester County, Pennsylvania only.
+Resolved reports show category icons only. Click an icon to open its card;
+click empty map space to dismiss it. The app list can also select an incident and
+fly to its location. The card shows labelled location/municipality fields,
+incident number/type, dispatch time, station or agency, and the county's public
+unit IDs, statuses and status-entry timestamps when available. Cards show up to eight public unit updates, with a link to the full county page.
+Unit counts and a separate unit-status update time distinguish these details
+from feed freshness.
+Click the card's source link to open that incident's official county page.
+Times are labelled America/New_York. Coverage is Chester County, Pennsylvania only.
+
+Repeated approximate-intersection/address/place tags are omitted from icons,
+cards and list entries. The layer-level notice and matching limitations below
+still explain that GIS positions are approximate. Source locations and documented
+GIS name corrections remain visible; no scene coordinates are invented.
 
 ## How street placement works
 
@@ -49,7 +72,7 @@ stay in the incident list with **No location match**, without a map pin.
 Actual GIS request failures instead show **Location lookup failed**. Coverage
 counts distinguish mapped, unresolved and lookup errors; only lookup errors
 degrade an otherwise fresh feed. Unresolved names alone do not indicate outage.
-The old municipality-center fallback has been removed.
+Unresolved reports never fall back to municipality-center pins.
 
 Only road/place names, address numbers and municipality qualifiers are sent to the
 county GIS service. Medical descriptions, incident IDs and station identifiers
@@ -58,10 +81,10 @@ are not sent in location queries. No commercial geocoder is used.
 ## Setup and lifecycle
 
 No API key is required. Use `npm run dev` or build and preview. Static file
-hosting alone cannot provide the proxy. The internal route and layer id remain
-`chester-county-ems` for compatibility; share token `8` is unchanged and stores
-only enabled state. Selection is transient. The layer is off by default and
-is intentionally outside the voice-query manifest.
+hosting alone cannot provide the proxy. The route is `/api/chester-county-ems`, the layer id is
+`chester-county-ems`, and share token `8` stores only enabled state. Selection is transient. The layer is off by default and
+supports voice visibility controls through “Chesco EMS” or “Chester County incidents”.
+MCP and voice share the dedicated queries described below.
 
 While enabled, browser refresh is every 60 seconds (paused by the manager in
 hidden tabs). The server shares in-flight work and permits at most one snapshot
@@ -69,7 +92,18 @@ attempt per 60 seconds, including failures. Source responses have byte caps and
 two bounded 6-second attempts for transient transport errors or HTTP 502/503/504
 (no immediate retry for HTTP 429); GIS resolution has an 8-second deadline per report, four workers,
 and a 16-second aggregate location budget. Browser acquisition has a 45-second
-deadline. Fixed endpoints only; redirects refused, GET only, no URL parameters.
+deadline. Fixed endpoints only; redirects refused, GET only. The snapshot accepts no URL parameters.
+
+Selecting an incident loads `/api/chester-county-ems/details?incident=<category:id>`.
+Only validated detail links from the active snapshot can be fetched; client-supplied
+URLs are never accepted. Details load on demand, with a shared 60-second per-incident
+cache/cooldown, at most four concurrent requests, 128 cached incidents, a six-second
+upstream deadline and a 256 KB body cap. Detail HTML becomes bounded plain-text unit
+fields; it is never forwarded or executed. IDs absent from the shared snapshot return 404.
+Unit lookup failures preserve the summary and mark retained unit details stale,
+without changing the main feed's health. Empty public status tables are shown as
+such; no private dispatch notes, patient records or inferred unit information is added.
+Selection changes and disable cancel client requests; late replies cannot repaint.
 
 Resolved locations cache in memory for 24 hours; unmatched names for five minutes,
 failed lookups for one minute,
@@ -99,9 +133,9 @@ is stale. The offset-less autumn repeated hour uses the earlier valid instant.
   shared level-zero road endpoints.
 
 All data loads at runtime. No live reports or GIS dataset ship in the repository.
-The earlier municipal dataset's separate restricted terms no longer apply to
-this implementation because it is no longer queried. Respect incident-data
-rights and GIS noncommercial/share-alike terms before publishing this local fork.
+The code is MIT-licensed; source records and derived GIS locations retain their
+separate terms. Respect incident-data rights and GIS noncommercial/share-alike
+terms when operating or sharing an instance.
 
 ## Code and validation
 
@@ -117,44 +151,38 @@ rights and GIS noncommercial/share-alike terms before publishing this local fork
 node --import=./build/registerVue.js --test \
   server/providers/chesterCountyEms.test.mjs \
   server/providers/chesterCountyEms/locations.test.mjs \
-  src/layers/chesterCountyEms/index.test.mjs
+  src/layers/chesterCountyEms/index.test.mjs \
+  src/ui/chesterCountyPanel.test.mjs
 QA_BASE_URL=http://localhost:4177 node scripts/qa-chester-county-ems.mjs
 ```
 
-The browser gate uses synthetic records only. Research, live-match observations,
-and changelog draft are under
-`/Users/ticnitsi/Documents/godseye-addons/chester-county-ems/`.
+The browser gate uses synthetic records only and checks all three categories,
+including synchronized changes from Data Layers and the county app,
+actual icon selection, public unit fields, mapping coverage, empty-snapshot clearing and disable. It writes
+its screenshot to `qa-shots/chester-county-ems/selected.png`. Set
+`QA_RECORDING_PATH` to an `.mp4` path to also record the interaction.
+For installed Brave on macOS, `PUPPETEER_EXECUTABLE_PATH` can select its binary
+and `QA_BROWSER_ANGLE=metal` can use the native renderer for the capture.
 
-Prior full-app validation (before street matching) recorded a KML child-process
-timeout and Cesium HTTP 401 errors in the tracking clean-start check. Those gates
-were not certified green. No credentials were changed for this integration.
+PR evidence uses only synthetic records: [screenshot](media/chester-county-incidents-synthetic.png)
+and [demo recording](media/chester-county-incidents-demo.mp4) (accelerated playback).
 
-### Street-matching validation, 2026-11-03
+## AI and MCP queries
 
-Production build, 41 focused incident/catalog integration tests, all locale
-catalogs, and the browser gate passed. The browser gate verified three category
-icons, actual list selection, empty-snapshot clearing and disable; screenshot:
-`qa-shots/chester-county-ems/selected.png` (synthetic records, gitignored).
-A live probe resolved seven of nine reports to county road junctions. Unresolved
-reports stayed unplotted. Address lookup was also checked against a public
-county address-point record. No live incident data was saved as a fixture.
+- `get_chester_county_incidents`: lists the county DES public feed, including
+  unmapped reports. Optional `category` (`fire`, `ems`, `traffic`), municipality,
+  text search and `limit` filters keep answers bounded. Results carry dispatch
+  times, source freshness, mapping coverage, approximate GIS positions or null,
+  and a suggested view that enables this layer.
+- `get_chester_county_incident_details`: takes a returned category-qualified
+  `id` (for example `ems:F26000001`) and reads that active report's public unit
+  IDs, statuses and entry timestamps. Unavailable unit data preserves the report
+  with `details_available: false`; stale unit status is distinct from feed age.
 
-The repository-wide boundary check currently flags the unrelated
-`src/hudLayoutPolicy.js` module as unowned during concurrent HUD work; it is not
-reported as passing for this revision. Broader pre-PR gates must be rerun after
-that work settles. Implementation is local and uncommitted.
-
-### Degraded-status fix validation, 2026-11-03
-
-Production build, 120 focused provider/layer/catalog/state tests, all locale
-catalogs and the browser gate passed. The browser fixture includes three mapped
-categories and one unmatched report: the layer shows ON, with 3 mapped,
-1 unresolved and 0 lookup errors. Real GIS failures still test as degraded;
-feed failures remain stale. Synthetic screenshot visually checked; background
-map tiles were blurred in the capture, so it is status/icon evidence only.
-
-Live official feed probe: fresh, 6 mapped / 2 unresolved / 0 lookup errors;
-a later running-app probe: fresh, 6 / 1 / 0 as active reports changed. The
-Tredyffrin junction correction resolved live, and a separate county GIS query
-confirmed Summit House as an approximate named place. No live reports saved.
-Broader pre-PR gates were not rerun; prior limitations remain documented above.
+Listing tools makes no source requests. Calling a query uses the same local
+proxy, minute caches and source limits as the map, even if the browser layer is
+currently off. No point is invented for unresolved reports, and no patient
+records or private dispatch notes are exposed. The spatial analyst engine does
+not count these reports as geolocated entities; voice uses the dedicated tools
+so unresolved reports remain included. Reconnect an existing MCP/voice session
+to load the updated tool list.

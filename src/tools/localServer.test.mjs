@@ -70,7 +70,16 @@ test('the stdio server answers newline-delimited requests using only its data so
   // Every Core tool's services are composed locally.
   assert.deepEqual(
     byId.get(2).result.tools.map((tool) => tool.name),
-    toolsForSurface(coreTools, 'mcp').map((tool) => tool.name),
+    [
+      ...toolsForSurface(coreTools, 'mcp').map((tool) => tool.name),
+      'list_view_sessions',
+      'list_saved_views',
+      'save_view',
+      'restore_view',
+      'delete_saved_view',
+      'restore_previous_view',
+      'set_selection_camera',
+    ],
   );
   assert.equal(
     byId.get(3).result.content[0].text,

@@ -254,6 +254,7 @@ export function createQueries({
      * @param {{models3d?: boolean, models3dMode?: 'proximity'|'all', selectedMilitaryTrackingId?: string|null}} params
      */
     setParams(params = {}, { origin = 'programmatic' } = {}) {
+      if (params.displayFilters) parts.display?.set(params.displayFilters);
       if (
         isExplicitLayerStateOrigin(origin) &&
         !Object.hasOwn(params, 'selectedMilitaryTrackingId')
@@ -325,6 +326,7 @@ export function createQueries({
 
     getParams() {
       return {
+        displayFilters: parts.display?.get(),
         models3d: flightState._models3dEnabled,
         models3dMode: flightState._models3dMode,
         irBoost: flightState._irBoost,
@@ -681,8 +683,14 @@ export function createQueries({
       if (!flightState._billboards.has(id)) return false;
       if (parts.tracking._isExplicitTrackingOrigin(origin))
         parts.tracking._cancelPendingTrackingRestore();
-      if (flightState._trackedIcao === id)
+      if (flightState._trackedIcao === id) {
+        if (
+          flightState._viewer?.trackedEntity !== flightState._trackedEntity &&
+          this.refocusTrackedById(id, { origin })
+        )
+          return true;
         return parts.tracking._publishTrackedSelection(id, origin);
+      }
       parts.tracking._trackFlight(id, { origin });
       return true;
     },
@@ -750,8 +758,7 @@ export function createQueries({
       if (!flightState._billboards.has(id)) id = id.toLowerCase();
       if (
         id !== flightState._trackedIcao ||
-        !flightState._viewer.entities?.contains?.(flightState._trackedEntity) ||
-        flightState._viewer.trackedEntity !== flightState._trackedEntity
+        !flightState._viewer.entities?.contains?.(flightState._trackedEntity)
       )
         return false;
       flightState._trackedCameraFrameStop?.();

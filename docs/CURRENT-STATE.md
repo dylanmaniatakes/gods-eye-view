@@ -1,5 +1,38 @@
 # God's Eye View Current State
 
+Single-click inspection opens OBJECT DETAILS in the right rail and refreshes the
+selected object's available public fields and live position without taking the
+camera. Panel text and controls receive their own pointer events rather than
+passing clicks through to the map and deselecting the object. CCTV retains its
+live-feed panel. Double-click (or inspector FOCUS)
+focuses the object and stores the prior camera world position/direction/up.
+Restore last view appears in the top action bar and in the inspector, releases
+camera ownership and returns immediately to that exact snapshot. The transient
+snapshot is separate from named saved views. S2 and Chester County incidents
+provide their selected report details; static Cesium property-bearing objects
+are supported too. See [Object inspection](OBJECT-INSPECTION.md) and
+`scripts/qa-object-inspection.mjs`.
+
+Live AIS vessels show clickable map icons without ambient name, speed or type
+cards. Selecting a vessel reveals its full details; switching selection replaces
+the card, and empty-map clicks or Escape remove it. Polling, icon visibility,
+selected-vessel highlighting, trails and explicit focus remain unchanged.
+`QA_BASE_URL=http://localhost:4173 node scripts/qa-vessel-selection.mjs` verifies
+this with synthetic ships, real map clicks and Escape dismissal.
+
+Ordinary globe selection preserves the camera by default: aircraft and satellite
+selection retains its visual/detail state without engaging follow; CCTV activates
+its feed without a globe flight, and fire, vessel and launch marker selections
+stay in place. Explicit Focus/Follow actions remain available. The top action
+bar's Saved views button manages up to 50 browser-local camera bookmarks, with
+save/update/delete, restore, and return to the previous view. Its Focus map on
+selection preference opts back into click-to-focus. Bookmark restores release
+follow, cockpit and orbit ownership; layers and styling are unchanged. The local
+HTTP and stdio MCP servers expose the same actions through a bounded browser
+session relay, requiring an explicit session when several tabs are connected.
+Remote/proxied browser sessions do not cross the existing local MCP boundary.
+See [Saved views](SAVED-VIEWS.md) and `scripts/qa-saved-views.mjs`.
+
 Docker Compose mounts the checkout with the shared SELinux `:z` label so
 containers can read it on enforcing SELinux hosts. The separate image-owned
 `node_modules` volume and loopback-only port publishing remain unchanged.
@@ -237,6 +270,35 @@ Regression coverage lives in `src/tools/area.test.mjs`,
 `src/tools/queries/environment.test.mjs` and
 `src/layers/perimeters/cards.test.mjs`.
 
+## Saved Display preferences
+
+Display choices save automatically in this browser and restore after a restart:
+HUD layout and visibility, sonar on/off and tuning, active visual style and its
+sliders, bloom, sharpen, detection, scope, celestial ring and map source. An
+explicit sonar OFF remains OFF after reload and when opening a shared view.
+Shared views take precedence over locally saved visual/map fields. Existing
+panel docking, pinning and disclosure preferences remain with the panel controls.
+
+Preferences belong to the app's browser origin (scheme, hostname and port);
+private browsing or clearing site data can remove them. Storage failures do not
+prevent startup or disable the controls. The key is
+`gev:display-preferences:v1`; removing it resets saved Display choices.
+
+`node scripts/qa-display-preferences.mjs` checks real controls and fresh starts.
+
+## Satellite roads and place labels
+
+Visual Presets > Map Source > **Esri Satellite + Labels** adds transparent Esri
+transportation and boundaries/place-name tiles above World Imagery. It requires
+no Google or Cesium ion key. Roads, administrative lines and city/place labels
+appear at the zoom levels supported by the services. The plain **Esri Satellite**
+choice remains available. Switching maps removes the hybrid references without
+removing data overlays. The hybrid map is also supported in shared views.
+
+`node scripts/qa-satellite-labels.mjs` checks the native map chip, live reference
+tiles and cleanup when switching to OSM. Both browser checks accept
+`QA_BASE_URL` and `QA_SCREENSHOT_DIR`.
+
 ## Scope display controls
 
 Display's native Scope checkbox defaults ON with feather at 100%, adjustable
@@ -263,6 +325,24 @@ that names Operator restores the default Tactical layout. Operator was the
 only layout that showed the HUD's top banner bar, so its markup and styles are
 removed too.
 
+### Display template personalization
+
+Display exposes Accent controls for Tactical, Minimal and Cyber: five presets,
+a custom color picker, and Default. Each template remembers its own choice in
+this browser. Tactical and Minimal retain their existing style-aware colors
+until a preset or custom color is selected; Default restores that behavior.
+Cyber defaults to dark purple. A chosen accent updates the template's HUD,
+active controls and shared shell accents without changing its geometry or
+warning colors. Color choices survive template switches and reloads and remain
+local preferences rather than shared-link/scene settings. Older Cyber-only
+preferences migrate to Cyber without changing Tactical or Minimal.
+
+`QA_BASE_URL=http://localhost:4173 node scripts/qa-display-accents.mjs` exercises
+all three templates, independent persistence, Default restoration, actual
+painted HUD colors, Sonar and panel placement/closing. `QA_ARTIFACT_DIR` saves a
+screenshot of each template. Run `node scripts/qa-display-hmr.mjs` separately
+against the same checkout's dev server to exercise source-edit reload behavior.
+
 ## Cyber HUD — September 30, 2026
 
 Display > HUD > Layout includes Cyber, also available through the HUD voice
@@ -270,11 +350,8 @@ action and shared visual state. An explicit first transition into Cyber selects
 FLIR with Ironbow 0.42. An explicit switch back to another HUD layout restores
 the visual preset used before Cyber; restored links and scenes remain
 authoritative. The skin uses shared purple/slate panel treatments in map and cockpit,
-with compact 200px collapsed controls and wider expanded panels. Display also
-offers a local Cyber accent choice: five preset swatches plus a custom color
-picker. The selection derives the theme's active, bright and surface tones,
-persists in this browser, and is not part of a shared link. Other HUD layouts
-retain their existing presentation.
+with compact 200px collapsed controls and wider expanded panels. The Accent
+selection described above derives its active, bright and surface tones.
 Chamfered panel expand/collapse controls use an inset keyboard-focus outline and
 purple hover border in both map and cockpit, so clipping does not hide the highlight.
 
@@ -946,9 +1023,19 @@ Every ALPR native marker is repositioned on map-source changes, including canvas
 
 ALPR floor preparation and clamped markers share a per-cell queue, with at most one 64-cell terrain batch active per layer. Disabling or destroying the layer cancels its terrain consumer and discards queued cells. Repeated moves inside an outstanding query retain the displayed markers until the new snapshot is ready.
 
+The existing ALPR layer merges DeFlock Maps' current primary US/Canada feed
+(`deflock.dontgetflocked.com`) with the existing hourly feed
+(`tiles.dontgetflocked.com`). Both are OSM-derived. Duplicate camera identities
+are merged, preferring a newer timestamped OSM edit; published way centroids
+remain distinct from node ids, and existing `alpr:<node-id>` ids stay stable.
+Either feed can carry the layer while its peer is unavailable: the row reports
+partial sources and retries after 30 seconds. DeFlock's build-pinned aliases are
+reread after an hour. The focused source/lifecycle tests cover merging, refresh,
+cancellation and recovery.
+
 The optional **ALPR Cameras** layer shows community-mapped OpenStreetMap locations,
 not camera footage or plate records. City-scale acquisition uses an hourly
-OpenStreetMap US/Canada extract, with available operator/brand/bearing
+pair of OpenStreetMap US/Canada extracts, with available operator/brand/bearing
 attributes. The extract carries full attributes from z9 (z0-8 are geometry-only
 heat tiles); each view reads the finest zoom from z12 down to z9 that fits 16
 tiles, so a 30 km whole-city view loads about 1,000 Austin cameras and a
@@ -958,8 +1045,8 @@ bounds are the accepted coverage: later views inside it (and precise enough for
 it) reuse the records at once, without a request or debounce, and a still camera
 sees one marker update per move. Missing verification dates remain unknown; OSM edit dates do not
 stand in for verification. Outside coverage the row says "No ALPR data for this
-area". Reads cap tiles at 16 per country, concurrency at four per country,
-responses at 4 MiB, decoded cache at 64 entries/24 MiB per country with a one-hour
+area". Reads cap tiles at 16 per country per feed, concurrency at four per country per feed,
+responses at 4 MiB, decoded cache at 64 entries/24 MiB per country per feed with a one-hour
 TTL, and accepted records at 6,000; at most 1,500 cameras in view render,
 nearest the view centre first, and more than that reads "Coverage limited".
 Partial coverage remains explicit.
@@ -1040,6 +1127,16 @@ keeps one camera per ground cell sized to the view, preferring a healthy feed,
 and the cells are anchored to the ground so a pan keeps the same cameras. The
 active camera always shows. Ground placement and coverage geometry load only
 for the cameras in view, with at most two attempts per camera and view regime.
+Marker spacing grows above 25 km viewer altitude, with overview caps of 160,
+80, 40 and 20 cameras at 25 km, 100 km, 500 km and 2,000 km respectively.
+A screen-space spacing pass also prevents overlapping markers in tilted views.
+Ambient thumbnails drop to eight at 50 km and hide at 100 km; zooming back in
+restores city detail. The full catalog and selected feed remain available.
+Ambient camera name callouts use a stricter text-only budget: at most 17 below
+5 km viewer altitude, 15 below 15 km, 12 below 30 km, and none at or above
+30 km. Minimum anchor spacing grows from 120 to 200 pixels. These limits apply
+even at maximum detection density and while old labels fade; camera icons,
+brackets and the selected camera's own title retain their existing behavior.
 The view pass reruns while the camera moves, paced by its own cost. The camera
 picker lists the cameras in view, active camera first, and closes with the
 count of cameras outside the view.
@@ -1325,9 +1422,41 @@ from the payload. There is no heading in the feed, so gizmos use the shared
 id-hash fallback at low confidence.
 
 Once enabled, the 250 cameras nearest the five borough cores load.
-`CCTV_NYC_MAX_SOURCES` sets the pack cap (8–400). The catalog-wide ceiling stays at 4,000 and is shared
+`CCTV_NYC_MAX_SOURCES` sets the pack cap (8–400). The catalog-wide budget defaults to 12,000 (20,000 maximum) and is shared
 round-robin: no region is dropped outright, but when the packs together exceed
 the ceiling, adding a pack trims cameras from the largest packs.
+
+## Pennsylvania 511PA cameras and expanded catalog capacity
+
+The built-in `511pa` pack loads statewide camera metadata by default, following
+all 100-row pages of the public 511PA catalog. Published WGS84 coordinates locate
+the markers; blocked or hidden views are excluded, and missing video falls back
+to still images. `CCTV_511PA_COUNTIES` can restrict the catalog to one or more
+counties; `all` is the default. `CCTV_511PA_MAX_SOURCES` defaults to 2,000, above
+the entire available statewide catalog checked on November 3, 2026 (1,445 views).
+Camera availability can change; the catalog flags do not prove every stream is
+working. Traffic direction labels do not establish a PTZ camera's heading.
+
+The shared catalog budget now defaults to 12,000, with a configurable hard
+ceiling of 20,000. The default fits the combined shipped source-pack budgets,
+including full Pennsylvania coverage, without granting a special allocation to
+one state. Explicit lower `CCTV_MAX_SOURCES` values retain the fair round-robin
+allocation and trim reporting. Metadata capacity is separate from visible
+card and live-video work: ambient cards still top out at 40, and the HLS relay
+still permits two demand-owned sessions with bounded memory and idle expiry.
+
+PennDOT video uses the public player's two-step authorization, origin headers,
+and clear fragmented MP4 HLS; signed URLs stay on the server. Snapshots remain
+available as a fallback, and authorization requests honor upstream rate limits.
+Public viewing does not grant feed-redistribution rights; see the PennDOT
+agreement and attribution details in `DATA_SOURCES.md` before public deployment.
+
+Validation: `node --test src/data/cctv*.test.mjs` checks full default pack budgets,
+large merged catalogs, explicit smaller caps, pagination, token handling and
+both HLS containers. `node scripts/qa-cctv-catalog.mjs` uses a 12,000-camera
+fixture against a running app to verify client completeness, selection of the
+last PA camera, decoded frames and bounded visible-card/frame work. It uses no
+live video tokens; `QA_BASE_URL` selects another dev or preview server.
 
 ## City of Toronto RESCU CCTV source pack
 
@@ -1343,8 +1472,8 @@ cameras return a 200 "Image Unavailable" placeholder frame instead of an error.
 
 By default all ~336 cameras load, nearest downtown first.
 `CCTV_TORONTO_MAX_SOURCES` sets the pack cap (8–500) and
-`CCTV_TORONTO_ENABLED=0` turns the pack off. The pack shares the 4,000
-catalog-wide ceiling round-robin with the other packs.
+`CCTV_TORONTO_ENABLED=0` turns the pack off. The pack shares the 12,000-default
+catalog-wide budget round-robin with the other packs.
 
 ## Lithuania CCTV source pack
 
@@ -2412,6 +2541,18 @@ which embeds the MAP_KEY.
 > SCOPE toggle + FEATHER slider, hash keys `sc`/`scf`) — it is NOT the
 > six zero-intensity style stages anymore (those are disabled; see the
 > history note in `_initStages`). Hidden tabs stop the render loop.
+> **2026-11-03 — idle compositor and aircraft view area:** Cyber's offline voice
+> scanner no longer animates; active scanning uses transforms rather than
+> layout. Sonar retains its smooth 5.2-second sweep on a smaller rotating
+> surface. Civil and military fleet visuals use `src/data/viewArea.js` to skip
+> terrain, styling and position-buffer writes outside the camera frustum plus
+> a 25% margin on each edge. Current motion estimates still run so aircraft can
+> enter the margin without waiting for a poll; tracked rendering stays on its
+> existing path. New off-screen models are not loaded outside the margin;
+> existing models can remain cached when the model budget permits. The browser
+> check `scripts/qa-idle-gpu.mjs` covers compositor demand, sweep appearance,
+> voice states, reduced motion and camera wakeup. Its measurements describe
+> browser work, not native GPU utilization.
 > AIS vessels no longer hold the loop while enabled (2026-09-30): vessels move
 > only when a poll lands, so the layer requests a frame for every forced pass
 > (new data, selection), leaves one trailing frame when the camera moved inside
@@ -3620,21 +3761,14 @@ down | auth-failed` (plus the unchanged `missing-key`/`unsupported`) with
 >   host horizon culling is explicit, and ordinary map mode now retains the
 >   shared Outside floor instead of bypassing edge fade through the former
 >   cockpit/celestial gate.
-> - **Vessel card ownership:** `aisLiveVessels.js` retains the 800 ms visibility
->   pass, 118 px one-winner grid, priority ranking, 150 px greedy separation,
->   type/detail formatting, and the AIS positions produced by its unchanged sea
->   datum path. It publishes ambient tactical cards and one protected selected
->   card into the host. `vesselLabels.js` is formatting/policy-only: no vessel
->   canvas, projection, paint loop, or post-render listener remains. Ambient
->   vessels share `ambient-card`; the selected entry paints in the selected lane,
->   bypasses the ambient cohort/distance fade, and its protected rectangle
->   excludes sibling ambient cards. Tracked readout still excludes AIS, avoiding
->   a duplicate card for the same selection. Disable and destroy clear the host
->   source. This is not a pixel-for-pixel port: shared cross-source collision,
->   UI exclusion, and horizon culling can admit fewer cards than the isolated
->   canvas, and the shared always-on keyhole policy now applies the shipped
->   Outside floor in ordinary map mode instead of using the interim active-mask
->   gate.
+> - **Vessel card ownership:** The vessel layer retains its 800 ms icon
+>   visibility pass and unchanged AIS sea-datum positions. It publishes only one
+>   protected selected detail card into the shared host; non-selected vessels
+>   remain clickable icons without ambient text cards. Selecting a different
+>   vessel replaces the card, and deselection publishes an empty entry set.
+>   `vesselLabels.js` remains formatting/policy-only. The selected card retains
+>   shared UI avoidance, horizon culling and protected placement. Tracked readout
+>   excludes AIS to avoid duplication; disable and destroy clear the source.
 > - **Tracked-readout ownership:** `trackedReadout.js` is now a presentation-model
 >   bridge only; it owns no canvas, projection, post-render listener, layout,
 >   keyhole fade, or paint path. Civilian flights, military flights, satellites,
@@ -4980,7 +5114,7 @@ silently demoting every later lookup for the session.
 - Aircraft cohort membership uses every locally loaded, selectable contact inside the 250 km window, including a plane hidden only by horizon culling or because its 3D model owns the visual. Counts and navigation therefore do not change with the current camera angle or billboard/model handoff.
 - Nearby examples in the context panel are focus controls: they use their owning layer's existing selection/tracking path, then frame that contact. Static-installation distances use ellipsoidal surface distance so the count matches the ground-projected context disk.
 - Context selection transfers camera ownership by subject type: selecting a civilian or military flight keeps that layer's moving follow camera, while selecting an AIS vessel or mapped installation first releases any prior aircraft tracker and performs only the source layer's one-time framing. The camera therefore remains user-controlled after non-aircraft selection instead of continuing to move with the previously selected plane.
-- Selected AIS vessels use their layer-owned full-detail presentation model in the shared world-overlay host; mapped installations promote their own entry to a selected card. Both remain crisp above post-processing without duplicate selected labels; non-selected AIS cards retain their source-owned grid/visibility selection and are host-batched with other world cards.
+- Selected AIS vessels use their layer-owned full-detail presentation model in the shared world-overlay host; mapped installations promote their own entry to a selected card. Both remain crisp above post-processing without duplicate selected labels. Non-selected civilian and unknown AIS vessels show their clickable map icons and detection brackets without nameplates; explicitly military vessels (including AIS ship-type 35) retain ambient detection labels.
 - Space Mission ascent replay uses the compact rocket/thrust overlay only through orbit insertion. Once the replay enters its orbit phase, that vehicle glyph is replaced by a fixed-size cyan dot following the same orbit path and callout.
 - While a subject is selected, an inner keyhole compass rotates against camera heading and up to three cyan shafted bearing arrows lock to its single faint tick-marked rim, with their labels inset just inside the circle. Labels explicitly separate the geographic bearing (`BRG`) from the contact's reported course (`CRS`) so the pointer direction is not confused with aircraft heading. They point toward the nearest observed/mapped examples; each cohort displays up to ten examples while retaining the complete locally loaded in-range cohort for navigation, with three visible at a time and a ten-second page rotation shared by the panel and arrows. This distinct neutral-context color avoids implying that all context indicators are military-flight symbols. `PREVIOUS`, `FOCUS`, and `NEXT` controls navigate selection history or the next nearby cohort example through the existing tracker. NEXT uses a cycle-scoped visited set and starts a deterministic new walk after exhausting the current candidates instead of re-admitting the nearest visited contact.
 - Awareness `BRG` and `CRS` labels wrap after rounding to whole degrees, so a direction of 359.5° displays as `000°` rather than `360°`.
@@ -4993,6 +5127,7 @@ silently demoting every later lookup for the session.
 
 - **Flights (commercial + military)** render one poll interval behind real time (30s/15s) and interpolate between two known feed-stamped fixes (OpenSky `time_position`; adsb.lol `receipt − seen_pos`). The display latency is an intentional product decision — do not "fix" it away. The whole fleet dead-reckons at ~12Hz (1m² write gating); aircraft get a 3-poll grace period (faded icon) before removal. When a position epoch pauses, both layers coast for at least 60 seconds of contact grace with an absolute five-minute ceiling. Source backoff marks each contact and the cockpit `STALE`; the cockpit then holds the exact layer position instead of continuing inertial flight. Repeated-position kinematic changes create a forward-only synthetic fix rather than mutating history, and grounded history is lifted only when no owned 3D model already controls its datum. A nominally successful worldwide OpenSky response whose own snapshot epoch is more than two minutes old prefers the existing 250-nm viewport-scoped adsb.lol fallback and labels the source/coverage accordingly when that upstream is available. If the fallback is also unavailable, the layer's freshness/error fields use the source epoch—never the cache receipt time—so the UI reports an old snapshot rather than “just now.”
 - **World-space headings at every angle** (`src/data/iconOrientation.js`): aircraft/vessel icon rotation uses the camera right/up basis per tick (alignedAxis always ZERO), which is exact at screen center and for orthographic/nadir views and remains stable through >180° tracked orbits. Perspective rays vary across the viewport, so off-center contacts at oblique pitch can diverge from an exact finite-difference window projection; a regression test pins that known regime, and field evidence decides whether to adopt exact projection with the basis method as fallback. Fleet rotations refresh on camera-pose change; tracked entities per frame. Billboards are horizon-culled via a shared EllipsoidalOccluder.
+- **Flight display filters and roster:** Live Flights and Military Flights each expose independent Declutter, Airborne only, Aircraft types and Altitude range toggles beneath their Data Layers row. The Flights panel on the right rail holds the detailed checklist, altitude limits in feet, Balanced/Sparse spacing and a paged full-feed search. Decluttering starts at 100 km viewing altitude and preserves identity-stable Earth-fixed cells; close views show all matching contacts. Selected/emergency contacts stay available and source/analyst records are not removed. Each feed's preferences persist locally, outside share-link state; list refreshes stop when the panel or document is hidden. See [FLIGHT-FILTERS.md](FLIGHT-FILTERS.md) and `scripts/qa-flight-filters.mjs`.
 - **Military/OpenSky reconciliation** (`src/data/militaryRegistry.js`): known-military ICAOs render amber in the flights layer (60s self-poll of the cached mil endpoint when the military layer is off) and are suppressed there while the military layer renders them.
 - **Satellites**: 838-sat core catalog (stations/visual/GPS/GLONASS/Galileo/GEO), tracking lands ~726km out via `viewFrom` (tracked entity owns a point graphic so the tracking camera engages), rings realign via primitive modelMatrix (no per-second rebuild flicker), optional `setParams({catalog:'dense'})` Starlink mode.
 - **Satellite classes** (`src/data/satelliteClass.js`): every satellite is classified from the CelesTrak group it was ingested with — no extra fetch and no heuristics — into STATION (warm white), NAV (cyan; GPS/GLONASS/Galileo deliberately share one color so the GNSS family reads as one thing), GEO (violet), VISUAL (muted blue-gray catch-all), and COMMS (dim slate, dense Starlink shell only). That module is the single source of truth for class, label, and color, so the dot, the card, and the legend swatch cannot disagree. Two deliberate palette rules: no class may sit in the 40–48° amber band, which is the app-wide known-military convention; and COMMS stays far below VISUAL in Rec.601 luminance so the dense shell stays separable when NVG/FLIR collapse the scene to one channel. The ISS keeps its long-standing red hero dot rather than the STATION color — it carries a permanent name label and its card still reads `STATION · ISS`. `satelliteClassOf` is the single owner of that ISS rule, so the card label and the legend tally can never disagree: during a stations-feed outage the ISS is ingested as `visual`, and both surfaces still file it under STATION.
@@ -5052,7 +5187,7 @@ silently demoting every later lookup for the session.
   kill switch `CCTV_FINTRAFFIC_ENABLED=0`) are the fourth pack: one keyless GeoJSON station list
   covering the whole country, where one _preset_ (a station's fixed view) is one camera — 806
   GATHERING stations carry 2,256 in-collection presets, prioritized to 300 against seven anchors
-  on the main road spine. `CCTV_MAX_SOURCES` is a 4,000 catalog-wide ceiling shared round-robin
+  on the main road spine. `CCTV_MAX_SOURCES` defaults to a 12,000 catalog-wide budget (20,000 maximum), shared round-robin
   across packs, so a lower global cap thins every region instead of starving the last pack.
   ~1,100 cameras total, all RAW PRIOR poses, stills-first. The catalog lives for 15 minutes; once
   it expires, `/api/cctv` keeps answering from it while one background refresh reloads every
@@ -5363,7 +5498,7 @@ and unreachable upstream (502/504) separately from road geometry.
   warm vessels survive later zero-position refreshes as stale/degraded data,
   while disable/re-enable owns a new timer and superseded responses remain
   inert.
-- Client render cap `VITE_AIS_LIVE_MAX_ROWS` (default 12,000); type-colored ship icons (tanker/cargo/passenger/fishing/tug); screen-space label clustering caps active labels at `VITE_AIS_LIVE_LABEL_MAX_ROWS` (default 900).
+- Client render cap `VITE_AIS_LIVE_MAX_ROWS` (default 12,000); type-colored ship icons (tanker/cargo/passenger/fishing/tug); vessel details appear only for the selected vessel, with no ambient name/speed/type cards. The independent detection overlay also suppresses civilian and unknown-vessel nameplates; explicitly military AIS types retain detection names.
 - Click-to-inspect wired into the voice context store.
 
 ### Voice Control (June 2026)
@@ -6655,24 +6790,64 @@ startup grace period and three consecutive failures before reporting unhealthy.
 This reports app HTTP availability, not individual provider health, and does not
 configure automatic restarts.
 
-## Chester County incidents — local fork
+## Chester County incidents
 
 The Events group includes an off-by-default **Chester County, PA incidents**
 layer. It reads Fire, EMS and Traffic tables from public WebCAD through the
-existing `/api/chester-county-ems` endpoint every 60 seconds while enabled.
+`/api/chester-county-ems` endpoint every 60 seconds while enabled.
 County road-centerline junctions resolve reported intersections; county address
-points resolve numbered addresses. Map labels preserve the source location and
-say approximate intersection/address. Flame, red-cross and siren billboards
-identify fire, EMS and traffic. Unresolved or ambiguous reports stay listed
-without a marker; municipal-center fallback is removed. Successful empty
+points resolve numbered addresses. Flame, red-cross and siren billboards identify fire, EMS and traffic.
+Only icons show by default; clicking an icon opens a labelled detail card, and
+clicking empty map space dismisses it. Repeated approximate-location tags are
+omitted; the layer-level GIS accuracy notice remains. Unresolved or ambiguous reports stay listed
+without a marker or municipality-center fallback. Successful empty
 snapshots clear reports and failures retain last-good data marked stale.
 All sources load at runtime into memory, with bounded county GIS lookups and
-no incident archive. The stable layer id and enabled-only share token `8` are
-unchanged. See `docs/CHESTER-COUNTY-EMS.md` for matching limits and source terms.
+no incident archive. The layer id is `chester-county-ems` and share token `8` stores only enabled state. See `docs/CHESTER-COUNTY-EMS.md` for matching limits and source terms.
 
 County incident health separates successful unmatched locations from GIS failures.
 Coverage counts expose mapped, unresolved and lookup-error totals; only actual
 lookup failures degrade a fresh feed. WebCAD retries transient failures once.
 County Common Place provides approximate named-place positions, and a documented
 Tredyffrin-only junction alias resolves Valley Forge/Yellow Springs using the
-GIS Valley Creek road name. Original reports and approximate labels are retained.
+GIS Valley Creek road name. Original report locations and GIS provenance are retained.
+
+County incident cards acquire public unit IDs, statuses and status-entry times
+from the selected report's official WebCAD detail page. Detail requests are
+on demand through a fixed-origin active-incident lookup, shared/cached for 60
+seconds and limited to four concurrent upstream requests. Detail outages retain
+the report, label old unit fields stale, and leave main-feed health unchanged.
+Cards link to the incident source; no private dispatch notes or history are stored.
+
+Chester County incidents are exposed to MCP and voice through
+`get_chester_county_incidents` and `get_chester_county_incident_details`, using
+the existing public snapshot/detail proxy and shared caches. Listing preserves
+unresolved reports with null coordinates and includes source freshness and
+coverage; selected report queries return bounded public unit status or an
+explicit unavailable result without discarding the report. Voice can toggle
+the layer through scoped Chesco/Chester County aliases. Its spatial analyst
+exclusion now directs the model to these tools rather than hiding the layer.
+
+The active Chester County report list now lives in its own **CHESCO INCIDENTS**
+right-side app alongside the other panels. Its launcher and panel are hidden
+while the data layer is off, and return when it is enabled. Data Layers keeps
+the normal visibility toggle/feed count and synchronized category filters. The
+app shares the existing snapshot and selection lifecycle, with no additional requests or polling;
+empty/stale/error feeds remain accessible while enabled. List selections still
+open the same map cards, and icon selections update the app's active row.
+
+The county app and Data Layers include synchronized Fire, EMS and Police/Traffic
+category toggles, all on by default. These filter map icons and the app list together, with matching/total
+counts and a distinct no-match state. Police/Traffic uses WebCAD's public Traffic
+table. Category changes use the cached snapshot, preserve full feed health/counts,
+and dismiss a selected report when its category is hidden. Filters are session
+state; the existing enabled-only share token and MCP full-feed queries persist.
+
+## Selected map popups
+
+The **Map popups** toggle in OBJECT DETAILS shows or hides selected S2 and
+Chester County incident cards on the map. It takes effect immediately, including
+for the current selection, and is saved in this browser. Turning popups off keeps
+markers, selection, live details, Focus and Restore available. It defaults to ON;
+CCTV feeds keep their existing behavior. The `qa-selection-popups.mjs` browser
+gate checks the toggle, live inspection and persistence after reload.

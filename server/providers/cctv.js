@@ -18,6 +18,11 @@ import { sanitizeCctvRangeHeader } from './cctv/range.js';
 import { admitSameSiteKeyless } from './common/same-site.js';
 import { PROXY_SIGNALS } from '../../src/localRequestGate.mjs';
 import { createHlsPuller } from './cctv/stream.js';
+import { createChesterCountyStreamResolver } from './cctv/chesterCounty.js';
+import {
+  createPennDotStreamResolver,
+  fetchPennDotMedia,
+} from './cctv/penndot.js';
 import { googleServerApiKey } from './places/google-key.js';
 export { CCTV_FRAME_FETCH_TIMEOUT_MS, fetchCctvImageFromUpstream };
 /**
@@ -42,7 +47,15 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
    * for any catalog the proxy can actually serve. */
   const HEALTH_MAX_ENTRIES = CCTV_MAX_SOURCES_CEILING;
   /** Live HLS strategies (see ./cctv/stream.js). Shared across dev and preview. */
-  const puller = createHlsPuller();
+  const resolveChesterCounty = createChesterCountyStreamResolver({
+    sourceRoot,
+  });
+  const resolvePennDot = createPennDotStreamResolver();
+  const puller = createHlsPuller({
+    fetchImpl: fetchPennDotMedia,
+    resolveUrl: async (url, signal, cameraId) =>
+      resolvePennDot(await resolveChesterCounty(url, signal), signal, cameraId),
+  });
 
   /** Update the health entry for a camera, evicting the oldest entry if at capacity. */
   const setHealth = (cameraId, patch) => {
@@ -161,6 +174,7 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
               name: source.name,
               city: source.city,
               cityId: source.cityId,
+              groupId: source.groupId,
               provider: source.provider,
               lat: source.lat,
               lon: source.lon,
@@ -215,9 +229,10 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
         }
 
         if (url.pathname.startsWith('/media/')) {
-          const match = /^\/media\/([^/]+)(?:\/(seg_(\d+)\.ts))?$/.exec(
-            url.pathname,
-          );
+          const match =
+            /^\/media\/([^/]+)(?:\/((seg|init)_(\d+)\.(ts|mp4)))?$/.exec(
+              url.pathname,
+            );
           if (!match) {
             res.writeHead(404);
             res.end();
@@ -274,14 +289,24 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
               return;
             }
             if (match[2]) {
-              const body = puller.getSegment(
-                cameraId,
-                url.searchParams.get('session'),
-                Number(match[3]),
-                leaseId,
-              );
+              const body =
+                match[3] === 'init'
+                  ? match[5] === 'mp4' &&
+                    puller.getInitSegment(
+                      cameraId,
+                      url.searchParams.get('session'),
+                      Number(match[4]),
+                      leaseId,
+                    )
+                  : puller.getSegment(
+                      cameraId,
+                      url.searchParams.get('session'),
+                      Number(match[4]),
+                      leaseId,
+                      match[5],
+                    );
               res.writeHead(body ? 200 : 404, {
-                'Content-Type': 'video/mp2t',
+                'Content-Type': match[5] === 'mp4' ? 'video/mp4' : 'video/mp2t',
                 'Cache-Control': 'no-store',
               });
               res.end(body || undefined);

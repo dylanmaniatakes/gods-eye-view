@@ -110,6 +110,8 @@ export const SHARE_VIEW_ENUMS = Object.freeze({
     'bing-labels',
     'esri-imagery',
     'osm',
+    // Append only: existing compact share links encode these indexes.
+    'esri-hybrid',
   ]),
   hudVariant: Object.freeze(['tactical', 'operator', 'minimal', 'cyber']),
   detectionMode: Object.freeze(['OFF', 'SPARSE', 'BALANCED', 'DENSE']),

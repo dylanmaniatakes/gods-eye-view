@@ -300,7 +300,8 @@ export function createPresentation({
 
   /**
    * `{ id, city, name }` for the active camera, then every camera the view
-   * pass shows: what the camera picker lists. A whole catalog would put tens
+   * pass shows, plus their explicitly grouped venue feeds: what the camera
+   * picker lists. A whole catalog would put tens
    * of thousands of options in the DOM and slow every layout. The same array
    * is returned until the view or the active camera changes, so a consumer
    * can compare it by identity.
@@ -314,7 +315,21 @@ export function createPresentation({
     if (cached?.view === view && cached.active === active) return cached.list;
     const records = active
       ? [active, ...view.filter((record) => record !== active)]
-      : view;
+      : [...view];
+    // One visible venue marker can represent several indoor court feeds.
+    // Keep its siblings in the picker without unthinning the map or cards.
+    const groups = new Set(
+      records.map(({ camera }) => camera.groupId).filter(Boolean),
+    );
+    if (groups.size) {
+      const included = new Set(records);
+      for (const record of layerState._records) {
+        if (groups.has(record.camera.groupId) && !included.has(record)) {
+          records.push(record);
+          included.add(record);
+        }
+      }
+    }
     const list = records.map(({ camera }) => ({
       id: camera.id,
       city: camera.city,

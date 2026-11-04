@@ -5,6 +5,8 @@ import { t } from '../i18n/index.js';
 import {
   createOsmImagery,
   createEsriImagery,
+  createEsriTransportation,
+  createEsriPlaces,
   createIonImagery,
   ESRI_ATTRIBUTION_HTML,
 } from './imagery.js';
@@ -60,7 +62,10 @@ export function createDefaultMapSources({
         ...common,
         imagery,
         terrain,
-        ...(descriptor.id === 'esri-imagery'
+        ...(descriptor.id === 'esri-hybrid'
+          ? { overlays: [createEsriTransportation, createEsriPlaces] }
+          : {}),
+        ...(descriptor.kind === 'esri-imagery'
           ? {
               credit: ESRI_ATTRIBUTION_HTML,
               constructionFallback: {

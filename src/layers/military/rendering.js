@@ -54,6 +54,7 @@ import {
   COURSE_MAX_DPS,
 } from './policy.js';
 import { AIRCRAFT_ENVIRONMENT_MAP_OPTIONS } from '../../data/aircraftModelLighting.js';
+import { createViewArea } from '../../data/viewArea.js';
 
 export function createRendering({
   flightState,
@@ -72,6 +73,7 @@ export function createRendering({
   } = services.focus;
   const { applyAircraftBillboardTreatment, applyAircraftModelTreatment } =
     services.recession;
+  const viewArea = createViewArea();
 
   /** Depth-test policy for aircraft billboards (mirror of flights.js — see the
    *  full rationale there). Round 5 (owner directive 2026-07-06): EVERY contact
@@ -852,6 +854,8 @@ export function createRendering({
 
     const occluder = horizonOccluder(camera);
     const focusTarget = getFocusTarget();
+    viewArea.update(camera);
+    parts.display?.prepare();
 
     // 3D model regime: only when enabled AND the camera is zoomed in past the altitude ceiling.
     // Drop all models the moment we leave it (toggled off / zoomed out) so billboards resume.
@@ -884,6 +888,11 @@ export function createRendering({
       const cand = [];
       for (const [icao, bb] of flightState._billboards) {
         if (icao === flightState._trackedIcao) continue;
+        if (parts.display && !parts.display.allows(icao)) continue;
+        // Keep cached models ready for a return pan; do not preload distant
+        // off-screen models ahead of contacts in or near the view.
+        if (!viewArea.contains(bb.position) && !flightState._models.has(icao))
+          continue;
         // A converted TR-3B renders as a billboard and can never take a model, so
         // it must not occupy a CAP SLOT either (mirror of flights.js) — excluded
         // at selection time, not just at the handoff below.
@@ -927,7 +936,21 @@ export function createRendering({
     for (const [icao24, bb] of flightState._billboards) {
       if (icao24 === flightState._trackedIcao) continue; // tracked entity owns its own motion
 
-      const dr = parts.motion._deadReckon(icao24, flightState._scratchFleetPos);
+      const dr =
+        parts.display?.positionFor(icao24) ||
+        parts.motion._deadReckon(icao24, flightState._scratchFleetPos);
+      // Mirror civil flights: keep estimates live so contacts can fly into
+      // view, but leave off-screen GPU buffers and model poses untouched.
+      if (
+        (parts.display && !parts.display.allows(icao24)) ||
+        !viewArea.contains(dr || bb.position)
+      ) {
+        if (bb.show) bb.show = false;
+        const model = flightState._models.get(icao24);
+        if (model?.show) model.show = false;
+        flightState._displayCourse.delete(icao24);
+        continue;
+      }
       // Gate the write — assigning Billboard.position dirties the whole
       // collection's vertex buffer, so skip sub-meter moves.
       if (dr && Cesium.Cartesian3.distanceSquared(dr, bb.position) > 1.0) {

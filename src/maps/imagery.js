@@ -22,6 +22,22 @@ export function createEsriImagery() {
   );
 }
 
+/** Transparent raster references designed to sit above World Imagery. */
+export function createEsriTransportation() {
+  return createEsriReference('World_Transportation');
+}
+
+export function createEsriPlaces() {
+  return createEsriReference('World_Boundaries_and_Places');
+}
+
+function createEsriReference(name) {
+  return Cesium.ArcGisMapServerImageryProvider.fromUrl(
+    `https://services.arcgisonline.com/ArcGIS/rest/services/Reference/${name}/MapServer`,
+    { enablePickFeatures: false },
+  );
+}
+
 export function createIonImagery(style, accessToken) {
   accessToken = String(accessToken || '').trim();
   if (!accessToken) throw new Error('Ion imagery requires an explicit token');

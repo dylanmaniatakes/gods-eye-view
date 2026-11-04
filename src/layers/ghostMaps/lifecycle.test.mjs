@@ -425,6 +425,8 @@ test('unchanged cached products age out on the timer, clear selected cards and k
   viewer.scene.pick = () => 'ghostmaps:cip:0:0';
   click({ position: { x: 0, y: 0 } });
   assert.equal(cards.at(-1).length, 1);
+  assert.match(layer.getInspectionInfo().label, /Expiring/);
+  assert.ok(Number.isFinite(layer.getInspectionInfo().latitude));
   at += 60_000;
   t.mock.timers.tick(60_000);
   assert.equal(layer.getStats().count, 1);
@@ -432,6 +434,7 @@ test('unchanged cached products age out on the timer, clear selected cards and k
   assert.equal(ds.entities.getById('ghostmaps:cip:0:0'), undefined);
   assert.ok(ds.entities.getById('ghostmaps:cip:1:0'));
   assert.deepEqual(cards.at(-1), []);
+  assert.equal(layer.getInspectionInfo(), null);
   await layer.update(viewer);
   assert.equal([...mounted][0], ds, 'same-version KMZ is not reloaded');
   viewer.scene.pick = () => 'ghostmaps:cip:1:0';
@@ -476,4 +479,60 @@ test('expiry removes every geometry and polygon outline belonging to an old repo
   t.mock.timers.tick(60_000);
   assert.equal(ds.entities.values.length, 0);
   assert.equal(layer.getStats().count, 0);
+});
+
+test('hiding S2 popups preserves the selected report, markers and inspection data across refreshes', async (t) => {
+  const { createSelectionPopupPreference } =
+    await import('../../data/selectionPopupPreference.js');
+  const popups = createSelectionPopupPreference({ storage: () => null });
+  let click;
+  const cards = [];
+  const { layer, viewer, mounted } = fixture(t, {
+    reports: [{ name: 'Report A' }, { name: 'Report B' }],
+    controls: {
+      selectionPopups: popups,
+      overlayHost: { setEntries: (_id, entries) => cards.push(entries) },
+      screenSpaceEventHandlerFactory: () => ({
+        setInputAction: (fn) => {
+          click = fn;
+        },
+        destroy() {},
+      }),
+      picking: { resolvePickId: (picked) => picked },
+    },
+  });
+  await layer.update(viewer);
+  viewer.scene.pick = () => 'ghostmaps:cip:0:0';
+  click({ position: { x: 0, y: 0 } });
+  const report = layer.getInspectionInfo();
+  assert.equal(cards.at(-1).length, 1);
+  popups.set(false);
+  assert.deepEqual(cards.at(-1), []);
+  assert.deepEqual(layer.getInspectionInfo(), report);
+  assert.equal([...mounted][0].entities.values.length, 2);
+  await layer.update(viewer);
+  assert.deepEqual(cards.at(-1), []);
+  assert.deepEqual(layer.getInspectionInfo(), report);
+  viewer.scene.pick = () => 'ghostmaps:cip:1:0';
+  click({ position: { x: 0, y: 0 } });
+  assert.equal(layer.getInspectionInfo().label, 'Report B');
+  assert.deepEqual(
+    cards.at(-1),
+    [],
+    'another hidden-mode selection must not create a popup',
+  );
+  popups.set(true);
+  assert.equal(
+    cards.at(-1).length,
+    1,
+    'the existing selection reappears without a new click',
+  );
+  layer.disable();
+  const count = cards.length;
+  popups.set(false);
+  assert.equal(
+    cards.length,
+    count,
+    'disabled layers release preference listeners',
+  );
 });

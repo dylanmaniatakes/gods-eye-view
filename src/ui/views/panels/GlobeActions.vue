@@ -3,6 +3,8 @@ import { storeToRefs } from 'pinia';
 import { computed } from 'vue';
 import { t } from '../../../i18n/index.js';
 import { useGlobeActionsStore } from '../../stores/globeActions.js';
+import { useObjectInspectionStore } from '../../stores/objectInspection.js';
+import SavedViews from './SavedViews.vue';
 import GlobeCompass from './GlobeCompass.vue';
 
 // The top-center camera and share actions. The shell answers the buttons
@@ -11,6 +13,7 @@ import GlobeCompass from './GlobeCompass.vue';
 // changes on every frame a rotating camera draws, so only the compass reads
 // it; the bar renders again only when the tilt changes.
 const globe = useGlobeActionsStore();
+const inspection = useObjectInspectionStore();
 const { clearBusy, resetBusy, camera } = storeToRefs(globe);
 const { act } = globe;
 const tilted = computed(() => Boolean(camera.value?.tilted));
@@ -27,6 +30,10 @@ const tilted = computed(() => Boolean(camera.value?.tilted));
   <button id="tilt-map-view" type="button" :aria-label="tilted ? t('Return map to straight-down view') : t('Tilt map to oblique view')" :aria-pressed="String(tilted)" :title="t('Toggle straight-down and tilted map views')" @click="act('tilt')">
     <span class="material-symbols-outlined" aria-hidden="true">view_in_ar</span>
   </button>
+  <button v-if="inspection.canReturn" id="restore-last-object-view" type="button" :aria-label="t('Restore last view')" :title="t('Restore last view')" @click="inspection.act('restore')">
+    <span class="material-symbols-outlined" aria-hidden="true">arrow_left</span>
+  </button>
+  <SavedViews />
   <GlobeCompass @click="act('northUp')" />
   <button id="reset-globe-view" type="button" :aria-label="resetBusy ? t('Resetting to full globe view') : t('Reset to full globe view')" :title="t('Reset camera and return to full globe view')" @click="act('reset')">
     <span class="material-symbols-outlined" aria-hidden="true">public</span>

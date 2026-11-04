@@ -20,6 +20,13 @@ export const PANEL_RAIL_ITEMS = Object.freeze({
   'utilities-panel': { icon: 'handyman', label: msg('UTILITIES') },
   'scene-panel': { icon: 'movie', label: msg('AUTHORING') },
   'pp-toggles': { icon: 'tune', label: msg('DISPLAY') },
+  'object-inspection-panel': { icon: 'radar', label: msg('OBJECT DETAILS') },
+  'flight-panel': { icon: 'flight', label: msg('FLIGHTS') },
+  'vessel-panel': { icon: 'directions_boat', label: msg('VESSELS') },
+  'chester-county-panel': {
+    icon: 'local_fire_department',
+    label: msg('CHESCO INCIDENTS'),
+  },
   'cctv-panel': { icon: 'videocam', label: msg('CCTV') },
   'weather-panel': { icon: 'partly_cloudy_day', label: msg('WEATHER') },
   'recent-imagery-panel': {
