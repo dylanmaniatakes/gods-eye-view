@@ -213,6 +213,10 @@ try {
     await open();
     assert.equal((await inspect()).accent, '#2367ab');
   }
+  // Reload the current shared view after its debounced URL write has settled.
+  await page.waitForFunction(
+    () => new URLSearchParams(location.hash.slice(1)).get('hud') === 'cyber',
+  );
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
   await ready();
   assert.equal(

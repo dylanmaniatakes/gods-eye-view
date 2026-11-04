@@ -22,6 +22,7 @@ try {
   const page = await browser.newPage();
   await page.setViewport({ width: 1440, height: 1000 });
   await page.evaluateOnNewDocument(() => {
+    localStorage.setItem('gev:first-run-mission:v1', 'suppressed');
     const original = window.fetch;
     window.__emsPaintedText = new Set();
     const fillText = CanvasRenderingContext2D.prototype.fillText;
@@ -124,9 +125,12 @@ try {
     waitUntil: 'domcontentloaded',
     timeout: 60000,
   });
-  await page.waitForFunction(() => window.__godsEyeView?.dataManager, {
-    timeout: 60000,
-  });
+  await page.waitForFunction(
+    () =>
+      window.__godsEyeView?.dataManager &&
+      document.getElementById('loading-screen')?.classList.contains('hidden'),
+    { timeout: 60000 },
+  );
   assert.equal(await page.$('[data-rail-item="chester-county-panel"]'), null);
   if (process.env.QA_RECORDING_PATH) {
     await mkdir(dirname(process.env.QA_RECORDING_PATH), { recursive: true });
@@ -266,10 +270,13 @@ try {
   // Move to the fixture without selecting it, then click its actual billboard.
   await page.evaluate(async () => {
     const app = window.__godsEyeView;
-    const Cesium = window.Cesium;
     app.viewer.camera.cancelFlight();
     app.viewer.camera.setView({
-      destination: Cesium.Cartesian3.fromDegrees(-75.605, 39.96, 1800),
+      destination: app.viewer.camera.position.constructor.fromDegrees(
+        -75.605,
+        39.96,
+        1800,
+      ),
       orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 },
     });
     app.viewer.scene.requestRender();
@@ -279,20 +286,16 @@ try {
     .waitForFunction(
       () => {
         const app = window.__godsEyeView;
-        const Cesium = window.Cesium;
         const entity =
           app.viewer.dataSources.getByName('chester-county-ems')[0].entities
             .values[0];
-        const point = Cesium.SceneTransforms.worldToWindowCoordinates(
-          app.viewer.scene,
-          entity.position.getValue(Cesium.JulianDate.now()),
+        const point = app.viewer.scene.cartesianToCanvasCoordinates(
+          entity.position.getValue(app.viewer.clock.currentTime),
         );
         if (!point) return false;
         const icon = { x: point.x, y: point.y - 12 };
         window.__emsIcon = icon;
-        const picked = app.viewer.scene.pick(
-          new Cesium.Cartesian2(icon.x, icon.y),
-        );
+        const picked = app.viewer.scene.pick(icon);
         window.__emsPick = {
           id: picked?.id?.id,
           camera: [
@@ -337,13 +340,38 @@ try {
     false,
   );
   // Empty map space dismisses the card; list selection remains available.
-  await page.mouse.click(1100, 700);
+  const emptyPoint = await page.evaluate(() => {
+    const scene = window.__godsEyeView.viewer.scene;
+    for (const [x, y] of [
+      [720, 700],
+      [650, 760],
+      [450, 650],
+    ]) {
+      if (
+        document.elementFromPoint(x, y) === scene.canvas &&
+        !scene.pick({ x, y })
+      )
+        return { x, y };
+    }
+    return null;
+  });
+  assert.ok(
+    emptyPoint,
+    'dismissal must click empty map, outside the inspector',
+  );
+  await page.mouse.click(emptyPoint.x, emptyPoint.y);
   await page.waitForFunction(
     () =>
       document
         .querySelector('button[data-list-item-id="ems:F26000001"]')
         ?.getAttribute('aria-pressed') === 'false',
   );
+  if (
+    await page.$eval('#chester-county-panel', (panel) =>
+      panel.classList.contains('collapsed'),
+    )
+  )
+    await page.locator('[data-rail-item="chester-county-panel"]').click();
   const item = await page.waitForSelector(incidentSelector, { visible: true });
   await item.click();
   await new Promise((resolve) => setTimeout(resolve, 4000));

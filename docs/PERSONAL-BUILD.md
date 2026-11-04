@@ -4,9 +4,15 @@ This build combines the newer upstream fixes with the local features completed
 today. The changes below remain part of this fork even where the upstream PRs
 are still open.
 
-The integration baseline is fork `main` at `b72159ef`. For this publication,
-the later upstream typed-chat, FAA-airspace and Houston-camera batch is deferred.
-Existing fork share-link tokens are retained.
+The original integration baseline was fork `main` at `b72159ef`, published with
+these features at `96ccb24a`. The subsequent integration merges upstream `main`
+at `73c14ac7`: typed AI chat, FAA prohibited/restricted airspace, the opt-in
+Houston camera pack, traffic distribution and range-ring improvements.
+
+Existing fork share-link tokens and stored state are retained: Chester County
+uses `8`, PennDOT Traffic Cams uses `9`, and FAA airspace uses the next free token,
+`00`. Upstream uses `8` for FAA; recreate those links with `00` when using this
+fork. There is no automatic reinterpretation of the ambiguous upstream token.
 
 - Hide ambient camera names at 30 km viewer altitude and above. Below that,
   progressively cap names at 12, 15 or 17 with extra spacing in dense areas.
@@ -64,6 +70,28 @@ camera-focus preferences.
 
 The voice tool schema uses a portable area-identifier pattern accepted by the
 Realtime API, while execution retains strict Unicode identifier validation.
+
+The upstream integration passed the production build, formatting for 1,817
+adopted files, all locale catalogs, package boundaries and the fork token ledger.
+The full unit run recorded 10,593 passes, three failures and one skip. The
+Houston-cap expectation was updated for this fork; its tests and the two timing
+failures passed in a 159-test serial rerun. Node 26 skips the two allocation
+microbenchmarks calibrated specifically for Node 24, as the standard runner does.
+
+Browser checks cover flight/vessel filters and launcher availability, vessel
+names, camera categories, county incidents, saved views and MCP restore,
+inspection and camera return, popup preferences, per-template accents, display
+preferences, satellite labels and idle rendering. A synthetic typed-chat turn
+successfully toggles PennDOT without acquiring a microphone; the FAA fixture
+loads beside the personal layers. Acceptance fixtures wait for rendered picks,
+unobstructed controls and debounced share URLs instead of fixed screen assumptions.
+
+The configured optional Cesium ion credential returned HTTP 401 during tracking
+checks. Keyless tests use a separate test server with ion disabled; the user's
+environment file and credentials are not changed by this integration. The full
+tracking regression passed all 109 assertions on that keyless server, including
+share restoration, tracking transitions, model/detection alignment and ground
+placement.
 
 Details: [Flight filters](FLIGHT-FILTERS.md), [Vessel filters](VESSEL-FILTERS.md),
 [Selected-object controls](OBJECT-INSPECTION.md), [Saved views](SAVED-VIEWS.md),

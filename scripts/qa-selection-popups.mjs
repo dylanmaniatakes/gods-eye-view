@@ -156,6 +156,25 @@ try {
         camera: app.styleManager.getCameraState(),
       };
     });
+  const clickPopupToggle = async () => {
+    // The rail labels fold away after the inspector opens. Wait for the
+    // actual button to receive the pointer before sending a real click.
+    await page.waitForFunction(() => {
+      const button = document.getElementById('inspection-map-popups');
+      if (!button) return false;
+      const rect = button.getBoundingClientRect();
+      return (
+        rect.width > 0 &&
+        button.contains(
+          document.elementFromPoint(
+            rect.x + rect.width / 2,
+            rect.y + rect.height / 2,
+          ),
+        )
+      );
+    });
+    await page.locator('#inspection-map-popups').click();
+  };
   await page.goto(`${base}/?welcome=0`, {
     waitUntil: 'domcontentloaded',
     timeout: 120000,
@@ -168,7 +187,7 @@ try {
       ] || 0) === 1,
   );
   const before = await state();
-  await page.click('#inspection-map-popups');
+  await clickPopupToggle();
   await page.waitForFunction(
     () =>
       document
@@ -203,7 +222,7 @@ try {
     0,
     'hidden popups stay hidden after reload and a fresh selection',
   );
-  await page.click('#inspection-map-popups');
+  await clickPopupToggle();
   await page.waitForFunction(
     () =>
       (window.__gevWorldOverlay.getDiagnostics().entriesBySource[

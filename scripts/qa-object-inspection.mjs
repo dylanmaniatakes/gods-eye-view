@@ -88,6 +88,9 @@ try {
       ),
       orientation: { heading: 0.2, pitch: -1.4, roll: 0.03 },
     });
+    // Keep live polling from replacing the synthetic acceptance snapshot.
+    app.dataManager.layers.get('ais-live-vessels').module.update =
+      async () => {};
     await app.dataManager.setEnabled('ais-live-vessels', true);
     app.dataManager.layers
       .get('ais-live-vessels')
@@ -253,6 +256,17 @@ try {
         `${key}.${axis} restored exactly`,
       );
   // Select again for a screenshot of the live details panel.
+  await page.waitForFunction(() => {
+    const app = window.__godsEyeView;
+    const row = app.dataManager.layers
+      .get('ais-live-vessels')
+      .module.__focusEvidence.snapshot()[0];
+    if (!row?.show || !Number.isFinite(row.x)) return false;
+    const picked = app.viewer.scene.pick({ x: row.x, y: row.y });
+    return String(picked?.id?.mmsi ?? picked?.id?.id ?? picked?.id).includes(
+      row.id,
+    );
+  });
   first = await marker(0);
   await page.mouse.click(first.x, first.y);
   await page.waitForFunction(

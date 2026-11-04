@@ -16,19 +16,20 @@ paywalled data is against project ground rules.
 
 ## Personal build integration — 2026-11-03
 
-The personal build merges the fork's `main` at `b72159ef` with today's local
-features. See `docs/PERSONAL-BUILD.md` for the retained changes. The user chose
-this tested fork baseline for this publication; the newer upstream typed-chat,
-FAA-airspace and Houston-camera batch is deferred. Node 26.13.0 is installed and
-supported, and `gh` is available and authenticated; the setup gaps below describe
-the earlier snapshot.
+The personal build initially merged fork `main` at `b72159ef` with today's local
+features and was published at `96ccb24a`. The user then authorized integration
+of current upstream `main` at `73c14ac7`, including typed chat, FAA airspace and
+the opt-in Houston camera pack. See `docs/PERSONAL-BUILD.md` for retained changes.
+Node 26.13.0 is installed and supported, and `gh` is authenticated; the setup gaps
+below describe the earlier snapshot.
 
 Treat `origin/main` as the published token baseline for this fork. Its personal
-Chester County layer uses token `8`, and PennDOT Traffic Cams uses `9`. Newer
-upstream assigns `8` to FAA airspace, so a future upstream merge needs an explicit
-share-link migration plan rather than silently reassigning published fork tokens.
-Upstream PR branches must use upstream's ledger and stay separate from the full
-personal-build branch.
+Chester County layer uses token `8`, and PennDOT Traffic Cams uses `9`. FAA
+airspace uses `00` in this fork because upstream's `8` was already published for
+Chester County here. Existing fork links and stored state retain their meaning.
+Upstream FAA links must be recreated with `00` for this fork; an unqualified `8`
+cannot identify both layers. Upstream PR branches must use upstream's ledger and
+stay separate from the full personal-build branch.
 
 ## Fork state snapshot (2026-11-02)
 

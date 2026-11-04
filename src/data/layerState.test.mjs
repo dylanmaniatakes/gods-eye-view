@@ -202,8 +202,8 @@ function encode(state) {
 
 test('production registry is exact, canonical, and rejects incomplete contracts', async () => {
   assert.equal(validateLayerStateRegistry(), true);
-  assert.equal(REGISTERED_LAYER_IDS.length, 36);
-  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 36);
+  assert.equal(REGISTERED_LAYER_IDS.length, 37);
+  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 37);
   assert.ok(REGISTERED_LAYER_IDS.includes('transit'));
   assert.deepEqual(REGISTERED_LAYER_IDS, [...REGISTERED_LAYER_IDS].sort());
   assert.deepEqual(LEGACY_LAYER_STATE_TOKENS, {
@@ -242,24 +242,21 @@ test('production registry is exact, canonical, and rejects incomplete contracts'
   for (const [id, token] of Object.entries(LEGACY_LAYER_STATE_TOKENS)) {
     assert.equal(LAYER_STATE_TOKEN_RESERVATIONS[id], token);
   }
-  assert.equal(nextLayerStateToken(), '00');
+  assert.equal(nextLayerStateToken(), '01');
   assert.equal(
     nextLayerStateToken({
-      ...Object.fromEntries(
-        Object.entries(LAYER_STATE_TOKEN_RESERVATIONS).filter(
-          ([id]) =>
-            !['chester-county-ems', 'penndot-traffic-cams'].includes(id),
-        ),
-      ),
-      alpha: '8',
-      bravo: '9',
+      ...LAYER_STATE_TOKEN_RESERVATIONS,
+      alpha: '01',
+      bravo: '02',
     }),
-    '00',
+    '03',
   );
-  const digitsExhausted = {
-    ...LAYER_STATE_TOKEN_RESERVATIONS,
-    ...Object.fromEntries([...'89'].map((digit) => [`prior-${digit}`, digit])),
-  };
+  // Boundary fixtures model the exhausted single-character namespace only.
+  const digitsExhausted = Object.fromEntries(
+    Object.entries(LAYER_STATE_TOKEN_RESERVATIONS).filter(
+      ([, token]) => token.length === 1,
+    ),
+  );
   assert.equal(nextLayerStateToken(digitsExhausted), '00');
   assert.equal(
     nextLayerStateToken({ ...digitsExhausted, retired: '00', used: '01' }),
@@ -310,8 +307,8 @@ test('production registry is exact, canonical, and rejects incomplete contracts'
   assert.equal(
     validateLayerStateAllocations(LAYER_STATE_TOKEN_RESERVATIONS, {
       ...LAYER_STATE_TOKEN_RESERVATIONS,
-      future: '00',
-      next: '01',
+      future: '01',
+      next: '02',
     }),
     true,
   );
@@ -319,9 +316,9 @@ test('production registry is exact, canonical, and rejects incomplete contracts'
     () =>
       validateLayerStateAllocations(LAYER_STATE_TOKEN_RESERVATIONS, {
         ...LAYER_STATE_TOKEN_RESERVATIONS,
-        future: '01',
+        future: '02',
       }),
-    /next free token 00/,
+    /next free token 01/,
   );
   const beforeLastDigit = Object.fromEntries(
     Object.entries(digitsExhausted).filter(([, token]) => token !== '9'),
@@ -345,10 +342,10 @@ test('production registry is exact, canonical, and rejects incomplete contracts'
   assert.throws(
     () =>
       validateLayerStateAllocations(
-        { ...LAYER_STATE_TOKEN_RESERVATIONS, merged: '9' },
-        { ...LAYER_STATE_TOKEN_RESERVATIONS, merged: '9', competing: '9' },
+        { ...LAYER_STATE_TOKEN_RESERVATIONS, merged: '01' },
+        { ...LAYER_STATE_TOKEN_RESERVATIONS, merged: '01', competing: '01' },
       ),
-    /next free token 00/,
+    /next free token 02/,
   );
   assert.throws(
     () => validateLayerStateAllocations({ future: '00' }, { future: '01' }),
@@ -504,7 +501,7 @@ test('unknown enabled-layer tokens reject the payload instead of becoming an emp
 });
 
 test('malformed enabled-layer lists reject the entire payload', () => {
-  for (const value of ['.c', 'c.', 'c..e', 'c.c', '00', 'c.00']) {
+  for (const value of ['.c', 'c.', 'c..e', 'c.c', 'zz', 'c.zz']) {
     assert.equal(
       decodeLayerStateParams(new URLSearchParams(`v=2&l=${value}`)),
       null,
@@ -2706,6 +2703,26 @@ test('the recent-imagery split is share-link only: never stored locally, and a s
   assert.equal(
     parseStoredLayerState(previous).options['recent-imagery'].split,
     50,
+  );
+});
+
+test('drone restrictions use fork token 00 while existing county and camera links retain 8 and 9', () => {
+  assert.deepEqual(
+    decodeLayerStateParams(new URLSearchParams('v=2&l=8.9')).enabledLayerIds,
+    ['chester-county-ems', 'penndot-traffic-cams'],
+  );
+  const decoded = decodeLayerStateParams(new URLSearchParams('v=2&l=00.2'));
+  assert.deepEqual(decoded.enabledLayerIds, [
+    'drone-airspace',
+    'fire-perimeters',
+  ]);
+  assert.equal(
+    LAYER_STATE_REGISTRY.find(({ id }) => id === 'drone-airspace').token,
+    '00',
+  );
+  assert.deepEqual(
+    decodeLayerStateParams(new URLSearchParams(encode(decoded))),
+    decoded,
   );
 });
 
