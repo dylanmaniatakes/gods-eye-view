@@ -931,7 +931,8 @@ export function createRendering({
       // view, but leave off-screen GPU buffers and model poses untouched.
       if (
         (parts.display && !parts.display.allows(icao24)) ||
-        !viewArea.contains(dr || bb.position)
+        (!viewArea.contains(dr || bb.position) &&
+          !viewArea.contains(bb.position))
       ) {
         if (bb.show) bb.show = false;
         const model = flightState._models.get(icao24);

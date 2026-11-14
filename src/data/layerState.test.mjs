@@ -203,8 +203,8 @@ function encode(state) {
 
 test('production registry is exact, canonical, and rejects incomplete contracts', async () => {
   assert.equal(validateLayerStateRegistry(), true);
-  assert.equal(REGISTERED_LAYER_IDS.length, 41);
-  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 41);
+  assert.equal(REGISTERED_LAYER_IDS.length, 44);
+  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 44);
   assert.ok(REGISTERED_LAYER_IDS.includes('transit'));
   assert.deepEqual(REGISTERED_LAYER_IDS, [...REGISTERED_LAYER_IDS].sort());
   assert.deepEqual(LEGACY_LAYER_STATE_TOKENS, {
@@ -244,8 +244,8 @@ test('production registry is exact, canonical, and rejects incomplete contracts'
     assert.equal(LAYER_STATE_TOKEN_RESERVATIONS[id], token);
   }
   // News holds 00, Shipwrecks 01 and Rail 02, the first pairs: the next token
-  // is 03.
-  assert.equal(nextLayerStateToken(), '03');
+  // is 08.
+  assert.equal(nextLayerStateToken(), '08');
   // The allocation rules below read the ledger before any of them took a pair.
   const beforeNews = { ...LAYER_STATE_TOKEN_RESERVATIONS };
   delete beforeNews.news;

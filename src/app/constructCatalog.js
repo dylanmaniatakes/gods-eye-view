@@ -29,6 +29,11 @@ import { createApplicationLocalAdsb } from './layers/localAdsb.js';
 import { createApplicationAwareness } from './layers/militaryAwareness.js';
 import { createApplicationFirms } from './layers/firms.js';
 import { createApplicationChesterCountyEms } from './layers/chesterCountyEms.js';
+import { createApplicationStarshipLive } from './layers/starshipLive.js';
+import {
+  createApplicationHfPropagation,
+  createApplicationVhfPropagation,
+} from './layers/propagation.js';
 import { createApplicationEarthquakes } from './layers/earthquakes.js';
 import { createApplicationAirQuality } from './layers/airQuality.js';
 import { createApplicationFirePerimeters } from './layers/perimeters.js';
@@ -174,10 +179,13 @@ export function createApplicationCatalog({
         }),
         satellites,
         createApplicationLaunches({ source: sources.launches, satellites }),
+        createApplicationStarshipLive({ source: sources['starship-live'] }),
         createApplicationTraffic({ source: sources.traffic, surface }),
         cameras.general,
         cameras.penndot,
         createApplicationRadio({ surface, source: sources.radio }),
+        createApplicationHfPropagation({ source: sources['hf-propagation'] }),
+        createApplicationVhfPropagation({ source: sources['vhf-propagation'] }),
         createApplicationTransit({
           surface,
           source: sources.transit,

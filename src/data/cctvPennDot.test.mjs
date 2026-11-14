@@ -244,7 +244,7 @@ test('catalog failures, redirects, excessive bodies and stalled pagination retur
   });
 });
 
-test('511PA pack is enabled by default and disabling it prevents catalog requests', async (t) => {
+test('511PA pack is opt-in and disabling it prevents catalog requests', async (t) => {
   t.mock.method(console, 'warn', () => {});
   t.mock.method(console, 'log', () => {});
   let calls = 0;
@@ -272,7 +272,7 @@ test('511PA pack is enabled by default and disabling it prevents catalog request
       assert.equal(calls, 1);
       delete process.env.CCTV_511PA_ENABLED;
       await createCctvCatalog({ sourceRoot: '/nonexistent' })();
-      assert.equal(calls, 2, 'unset flag enables the local 511PA pack');
+      assert.equal(calls, 1, 'unset flag must not contact 511PA');
     },
   );
 });

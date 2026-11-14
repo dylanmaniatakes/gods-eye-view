@@ -52,6 +52,7 @@ for (const [name, createRendering] of [
       _modelPending: new Set(),
       _models3dEnabled: false,
       _lastFleetTickMs: 0,
+      now: () => 0,
       _scratchFleetRenderTime: new Cesium.JulianDate(),
       _scratchFleetPos: new Cesium.Cartesian3(),
       _cullPositions: new Map(),
@@ -77,6 +78,10 @@ for (const [name, createRendering] of [
       },
     };
     const parts = {
+      tracking: {
+        _trailTick: () => {},
+        _staleCueTick: () => {},
+      },
       motion: {
         _deadReckon: () => estimate,
         _floorGroundedDisplayPosition(id, info, dr) {

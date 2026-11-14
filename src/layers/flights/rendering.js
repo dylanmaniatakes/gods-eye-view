@@ -1051,7 +1051,8 @@ export function createRendering({
       // for contacts well outside the view. Tracking has its own full-rate path.
       if (
         (parts.display && !parts.display.allows(icao24)) ||
-        !viewArea.contains(dr || bb.position)
+        (!viewArea.contains(dr || bb.position) &&
+          !viewArea.contains(bb.position))
       ) {
         if (bb.show) bb.show = false;
         const model = flightState._models.get(icao24);

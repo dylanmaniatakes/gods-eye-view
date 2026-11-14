@@ -58,8 +58,9 @@ test('the complete Realtime tool payload pins the manifest-generated layer relea
     // control_cockpit states the own-layer entry rule (Contacts not required).
     // move_camera tilt takes an optional pitchDeg angle, described as
     // absolute with its -45 default, with steps sent as a direction.
-    // show_street_level (map, source, photo) adds one tool.
-    'c70b7c023ee3cca831bc3736876c48c2d4ed0de5f7ee2d13c27ebde643ba4258',
+    // show_street_level (map, source, photo) adds one tool; Starship Live
+    // extends the generated layer enums.
+    '06395d2fa5fb5d150a48b5adcbc9612c664ba77d0f426cbc982ee593559b3ec1',
   );
 });
 

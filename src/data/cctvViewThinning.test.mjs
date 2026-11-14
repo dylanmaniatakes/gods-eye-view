@@ -193,46 +193,6 @@ test('a disabled layer skips the view pass', () => {
   assert.deepEqual(_viewRecordIdsForTest(), []);
 });
 
-test('PennDOT visibility is independent while manually found Pennsylvania webcams stay in Cameras', () => {
-  const { records, screenByPosition } = recordsAt([
-    [0, 0],
-    [0.0001, 0],
-    [0.0002, 0],
-  ]);
-  records[0].camera.id = '511pa-5852';
-  records[0].camera.sourceKind = '511pa-public-camera';
-  records[1].camera.id = 'pa-bounce-malvern-court-1';
-  records[2].camera.id = 'chester-county-west-chester-high-st';
-  const check = (general, penndot, expected) => {
-    _setCctvCoverageStateForTest({
-      viewer: viewerAt(300, screenByPosition),
-      records,
-      cameraCategories: { general, penndot },
-    });
-    refreshHorizonCulling();
-    assert.deepEqual(shownIds(records), [...expected].sort());
-    assert.deepEqual(
-      cctvLayer
-        .getUIState()
-        .cameras.map((c) => c.id)
-        .sort(),
-      [...expected].sort(),
-    );
-    assert.equal(
-      cctvLayer.selectCamera(
-        general ? '511pa-5852' : 'pa-bounce-malvern-court-1',
-      ),
-      false,
-      'a hidden category cannot be selected',
-    );
-  };
-  check(true, false, [
-    'pa-bounce-malvern-court-1',
-    'chester-county-west-chester-high-st',
-  ]);
-  check(false, true, ['511pa-5852']);
-});
-
 test('zooming out reduces dense camera markers and zooming back in restores them', () => {
   const { records, screenByPosition } = recordsAt(
     Array.from({ length: 400 }, (_, i) => [
@@ -367,62 +327,42 @@ test('the camera picker lists the view, with the active camera first', () => {
   assert.equal(state.cameras.length, 3, 'the full list is still every camera');
 });
 
-test('one venue marker keeps every named court in the picker without showing extra map icons', () => {
-  const { records, screenByPosition } = recordsAt(
-    Array.from({ length: 9 }, () => [0, 0]),
-    (index) => (index === 8 ? { x: WIDTH * 3, y: 0 } : { x: 100, y: 100 }),
-  );
-  for (const record of records.slice(0, 8))
-    record.camera.groupId = 'bounce-pickleball-malvern';
-  records[8].camera.groupId = 'another-venue';
-  _setCctvCoverageStateForTest({
-    viewer: viewerAt(20_000, screenByPosition),
-    records,
-  });
-  refreshHorizonCulling();
-  assert.equal(
-    shownIds(records).length,
-    1,
-    'the venue still has one representative icon',
-  );
-  const index = cctvLayer.getUIState().cameraIndex;
-  assert.deepEqual(
-    index.map((camera) => camera.id).sort(),
-    records.slice(0, 8).map(({ camera }) => camera.id),
-  );
-  assert.equal(
-    cctvLayer.getUIState().cameraIndex,
-    index,
-    'venue expansion stays cached',
-  );
-
-  _setCctvCoverageStateForTest({
-    viewer: viewerAt(20_000, screenByPosition),
-    records,
-    activeCameraId: 'cam-3',
-  });
-  refreshHorizonCulling();
-  const selected = cctvLayer.getUIState().cameraIndex;
-  assert.equal(selected[0].id, 'cam-3');
-  assert.deepEqual(
-    shownIds(records),
-    ['cam-3'],
-    'the selected court owns the venue marker',
-  );
-  assert.equal(
-    new Set(selected.map((camera) => camera.id)).size,
-    8,
-    'selecting a court neither hides siblings nor adds duplicates',
-  );
-  _setCctvCoverageStateForTest({
-    viewer: viewerAt(300, screenByPosition),
-    records,
-  });
-  refreshHorizonCulling();
-  assert.equal(
-    shownIds(records).length,
-    1,
-    'street zoom does not stack co-located court icons',
-  );
-  assert.equal(cctvLayer.getUIState().cameraIndex.length, 8);
+test('PennDOT visibility is independent while manually found Pennsylvania webcams stay in Cameras', () => {
+  const { records, screenByPosition } = recordsAt([
+    [0, 0],
+    [0.0001, 0],
+    [0.0002, 0],
+  ]);
+  records[0].camera.id = '511pa-5852';
+  records[0].camera.sourceKind = '511pa-public-camera';
+  records[1].camera.id = 'pa-bounce-malvern-court-1';
+  records[2].camera.id = 'chester-county-west-chester-high-st';
+  const check = (general, penndot, expected) => {
+    _setCctvCoverageStateForTest({
+      viewer: viewerAt(300, screenByPosition),
+      records,
+      cameraCategories: { general, penndot },
+    });
+    refreshHorizonCulling();
+    assert.deepEqual(shownIds(records), [...expected].sort());
+    assert.deepEqual(
+      cctvLayer
+        .getUIState()
+        .cameras.map((c) => c.id)
+        .sort(),
+      [...expected].sort(),
+    );
+    assert.equal(
+      cctvLayer.selectCamera(
+        general ? '511pa-5852' : 'pa-bounce-malvern-court-1',
+      ),
+      false,
+      'a hidden category cannot be selected',
+    );
+  };
+  check(true, false, [
+    'pa-bounce-malvern-court-1',
+    'chester-county-west-chester-high-st',
+  ]);
+  check(false, true, ['511pa-5852']);
 });

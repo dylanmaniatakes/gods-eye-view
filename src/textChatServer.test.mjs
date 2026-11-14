@@ -707,7 +707,11 @@ test('OpenAI empty tool arrays are removed before history is returned', async (t
 });
 
 test('OpenAI chat schemas drop only the patterns Chat Completions refuses', () => {
-  assert.match(JSON.stringify(GEV_REALTIME_TOOLS), /\\\\[pP]\{/);
+  assert.doesNotMatch(
+    JSON.stringify(GEV_REALTIME_TOOLS),
+    /\\[pP]\{/,
+    'realtime schemas keep the ASCII-safe candidate pattern',
+  );
   assert.deepEqual(
     chatSchema({
       type: 'object',
