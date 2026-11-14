@@ -2,6 +2,7 @@ import path from 'node:path';
 import { chesterCountyEmsProxy } from './chesterCountyEms.js';
 import { openSkyProxy } from './aircraft/opensky.js';
 import { celestrakProxy, rocketLaunchesProxy } from './space.js';
+import { starshipLiveProxy } from './space/starshipLive.js';
 import { tomtomProxy } from './traffic.js';
 import { firmsProxy } from './firms.js';
 import { terrainHeightsProxy } from './terrain.js';
@@ -63,6 +64,7 @@ function localProviderPlugins({
     tomtomProxy(),
     firmsProxy(),
     rocketLaunchesProxy(),
+    starshipLiveProxy(),
     terrainHeightsProxy(),
     adsbdbProxy(),
     overpassProxy(),
