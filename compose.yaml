@@ -1,6 +1,7 @@
 services:
   gods-eye-view:
     build: .
+    restart: unless-stopped
     # Everything the app writes (.env with your keys, .gev-cache, .gev-logs)
     # lands in the bind-mounted repo, so run as you, not root. UID/GID are
     # unset on Docker Desktop, where the 1000 fallback is ignored anyway.
@@ -17,7 +18,7 @@ services:
       # into the default: this server brokers whatever provider keys you have
       # configured to anyone who can reach it. Widen this deliberately, not by
       # accident.
-      - "127.0.0.1:4173:4173"
+      - '127.0.0.1:4173:4173'
     volumes:
       # Bind the source so edits hot-reload and so keys pasted into the setup
       # UI land in the .env on your host instead of vanishing with the
