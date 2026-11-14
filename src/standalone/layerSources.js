@@ -1,4 +1,4 @@
-import { createChesterCountyEmsSource } from '../layers/chesterCountyEms/source.js';
+import { createCountyEmsSource } from '../layers/chesterCountyEms/source.js';
 import { createDirectionsSource } from '../layers/directions/source.js';
 import { createRecentImagerySource } from '../layers/recentImagery/source.js';
 import { createOpenFreeMapSource } from '../sources/openFreeMap.js';
@@ -9,12 +9,17 @@ import {
 } from '../sources/live/standalone.js';
 import { createCctvSource } from '../layers/cctv/source.js';
 import { createRadioSource } from '../layers/radio/source.js';
+import {
+  createWsprPropagationSource,
+  createVhfPropagationSource,
+} from '../layers/propagation/source.js';
 import { createTransitSource } from '../layers/transit/source.js';
 import { createTrafficSource } from '../layers/traffic/source.js';
 import { createBikeshareSource } from '../layers/bikeshare/source.js';
 import { createInstallationSource } from '../layers/installations/source.js';
 import { createSatelliteSource } from '../layers/satellites/source.js';
 import { createLaunchSource } from '../layers/launches/source.js';
+import { createStarshipLiveSource } from '../layers/starshipLive/source.js';
 import { createCombinedAlprSource } from '../layers/alpr/source.js';
 import { createWeatherSource } from '../layers/weather/source.js';
 import { createCycloneSource } from '../layers/cyclones/source.js';
@@ -40,7 +45,7 @@ export function createStandaloneLayerSources(
   });
   const defaults = {
     ...createReferenceSources(),
-    'chester-county-ems': createChesterCountyEmsSource(),
+    'chester-county-ems': createCountyEmsSource(),
     directions: createDirectionsSource(),
     'recent-imagery': createRecentImagerySource(),
     flights: createFlightSource(),
@@ -53,12 +58,15 @@ export function createStandaloneLayerSources(
     }),
     cctv: createCctvSource(),
     radio: createRadioSource(),
+    'hf-propagation': createWsprPropagationSource(),
+    'vhf-propagation': createVhfPropagationSource(),
     traffic: createTrafficSource({ mapTiles: trafficTiles }),
     transit: createTransitSource(),
     bikeshare: createBikeshareSource(),
     installations: createInstallationSource({ mapTiles: installationTiles }),
     satellites: createSatelliteSource(),
     launches: createLaunchSource(),
+    'starship-live': createStarshipLiveSource(),
     alpr: createCombinedAlprSource(),
     firms: createFirmsSource(),
     's2-ghostmaps': createGhostMapsSource(),

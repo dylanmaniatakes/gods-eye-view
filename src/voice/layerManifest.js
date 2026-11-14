@@ -46,6 +46,19 @@ const layers = [
   {
     id: 'chester-county-ems',
     aliases: [
+      'lancaster county ems',
+      'delaware county ems',
+      'delco dispatch',
+      'dauphin county ems',
+      'pike county ems',
+      'york county ems',
+      'adams county ems',
+      'lebanon county ems',
+
+      'county ems',
+      'county incidents',
+      'montgomery county ems',
+      'montco incidents',
       'chesco ems',
       'chester county incidents',
       'chester county ems',
@@ -53,7 +66,7 @@ const layers = [
     ],
     context: false,
     noQuery:
-      'use get_chester_county_incidents and get_chester_county_incident_details; unresolved public reports have no coordinates',
+      'use get_county_incidents and get_county_incident_details; unresolved public reports have no coordinates',
   },
   {
     id: 'gnss-integrity',
@@ -169,6 +182,12 @@ const layers = [
       },
       caveat: 'distance is ground distance, not overhead',
     },
+  },
+  {
+    id: 'starship-live',
+    aliases: ['starship', 'starship live', 'live starship'],
+    context: false,
+    noQuery: 'live webcast telemetry; use the Starship Live row',
   },
   {
     id: 'rocket-launches',
@@ -474,6 +493,8 @@ const layers = [
  * pair belong to a scripted scene and are driven by `control_scene`.
  */
 export const VOICE_OFF_LAYERS = Object.freeze({
+  'hf-propagation': 'observed radio paths; use the Data Layers controls',
+  'vhf-propagation': 'observed 2 m paths; use the Data Layers controls',
   'bhote-koshi-2026': 'scene-driven event layer (control_scene)',
   'bhote-koshi-locator': 'scene-driven event layer (control_scene)',
   // The Realtime prompt is at its 52,000-character budget; voice toggle and

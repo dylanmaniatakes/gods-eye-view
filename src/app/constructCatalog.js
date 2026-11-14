@@ -3,6 +3,7 @@ import { createWeatherClock } from '../layers/weather/clock.js';
 import { createWeatherLayer } from '../layers/weather/index.js';
 import { createCyclonesLayer } from '../layers/cyclones/index.js';
 import { createWindLayer } from '../layers/wind/index.js';
+import { createPropagationLayer } from '../layers/propagation/index.js';
 import { createLayerCatalog } from './catalog.js';
 import { LAYER_STATE_REGISTRY } from '../data/layerState.js';
 import { createMilitaryRegistry } from '../layers/aircraft/classification.js';
@@ -21,6 +22,7 @@ import { createApplicationTransit } from './layers/transit.js';
 import { createApplicationInstallations } from './layers/militaryInstallations.js';
 import { createApplicationSatellites } from './layers/satellites.js';
 import { createApplicationLaunches } from './layers/rocketLaunches.js';
+import { createApplicationStarshipLive } from './layers/starshipLive.js';
 import { createApplicationAlpr } from './layers/alprCameras.js';
 import { createApplicationLocalAdsb } from './layers/localAdsb.js';
 import { createApplicationAwareness } from './layers/militaryAwareness.js';
@@ -153,10 +155,16 @@ export function createApplicationCatalog({
         }),
         satellites,
         createApplicationLaunches({ source: sources.launches, satellites }),
+        createApplicationStarshipLive({ source: sources['starship-live'] }),
         createApplicationTraffic({ source: sources.traffic, surface }),
         cameras.general,
         cameras.penndot,
         createApplicationRadio({ surface, source: sources.radio }),
+        createPropagationLayer({ source: sources['hf-propagation'] }),
+        createPropagationLayer({
+          source: sources['vhf-propagation'],
+          vhf: true,
+        }),
         createApplicationTransit({ surface, source: sources.transit }),
         createApplicationBikeshare({ source: sources.bikeshare }),
         createApplicationDirections({ source: sources.directions }),

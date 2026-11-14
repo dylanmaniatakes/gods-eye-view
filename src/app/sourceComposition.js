@@ -19,6 +19,8 @@ export const CATALOG_SOURCE_CONTRACTS = Object.freeze({
     ['getCatalog', 'getHealth', 'getFrameUrl', 'getMediaUrl'],
   ),
   radio: contract(['radio'], ['getDirectory', 'recordClick']),
+  'hf-propagation': contract(['hf-propagation'], ['getSnapshot']),
+  'vhf-propagation': contract(['vhf-propagation'], ['getSnapshot']),
   traffic: contract(
     ['traffic'],
     [
@@ -36,6 +38,7 @@ export const CATALOG_SOURCE_CONTRACTS = Object.freeze({
   ),
   satellites: contract(['satellites'], ['readGroup']),
   launches: contract(['rocket-launches'], ['getLaunches', 'getActiveTle']),
+  'starship-live': contract(['starship-live'], ['getSnapshot']),
   alpr: contract(['alpr-cameras'], ['fetch']),
   firms: contract(['local-firms'], ['getSnapshot']),
   wind: contract(['wind'], ['getSnapshot']),

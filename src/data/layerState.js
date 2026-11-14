@@ -298,6 +298,16 @@ function satelliteFilterOption() {
 }
 
 const OPTION_GROUPS = Object.freeze({
+  'hf-propagation': Object.freeze([
+    booleanOption('band10m', 'a', true),
+    booleanOption('band20m', 'b', true),
+    booleanOption('band40m', 'c', true),
+    booleanOption('band80m', 'd', true),
+    booleanOption('band160m', 'e', true),
+  ]),
+  'vhf-propagation': Object.freeze([
+    booleanOption('longPathsOnly', 'l', false),
+  ]),
   traffic: Object.freeze([
     enumOption('roadMode', 'r', null, ['tomtom', 'osm', 'hybrid'], {
       tomtom: 't',
@@ -625,6 +635,12 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
     token: '3',
     disposition: 'enabled-only',
   }),
+  Object.freeze({
+    id: 'hf-propagation',
+    token: '01',
+    disposition: 'enabled+options',
+    optionOwner: 'hf-propagation',
+  }),
   Object.freeze({ id: 'local-dams', token: 'q', disposition: 'enabled-only' }),
   Object.freeze({
     id: 'local-datacenters',
@@ -685,6 +701,11 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
   Object.freeze({ id: 'sea-marks', token: '6', disposition: 'enabled-only' }),
   Object.freeze({ id: 'ski-pistes', token: '7', disposition: 'enabled-only' }),
   Object.freeze({
+    id: 'starship-live',
+    token: '03',
+    disposition: 'enabled-only',
+  }),
+  Object.freeze({
     id: 'street-level',
     token: '0',
     disposition: 'enabled+options',
@@ -702,6 +723,12 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
     optionOwner: 'traffic',
   }),
   Object.freeze({ id: 'transit', token: 'j', disposition: 'enabled-only' }),
+  Object.freeze({
+    id: 'vhf-propagation',
+    token: '02',
+    disposition: 'enabled+options',
+    optionOwner: 'vhf-propagation',
+  }),
   Object.freeze({
     id: 'weather-cyclones',
     token: 'y',

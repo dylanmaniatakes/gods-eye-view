@@ -43,6 +43,7 @@ const PANEL_GROUPS = [
     label: msg('Movement'),
     ids: [
       'satellites',
+      'starship-live',
       'flights',
       'military',
       'local-adsb',
@@ -101,7 +102,7 @@ const PANEL_GROUPS = [
   },
   {
     label: msg('Audio'),
-    ids: ['radio'],
+    ids: ['radio', 'hf-propagation', 'vhf-propagation'],
   },
 ];
 const PANEL_ORDER = PANEL_GROUPS.flatMap(({ label, ids, containerId }) =>

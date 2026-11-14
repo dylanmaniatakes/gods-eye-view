@@ -100,8 +100,16 @@ export const NYC_DOT_DISCLAIMER =
 
 export const DATA_CREDITS = [
   {
+    key: 'wspr-live',
+    html: 'Observed radio paths: <a href="https://wspr.live/" target="_blank" rel="noopener">WSPR Live</a>, sourced from <a href="https://wsprnet.org/" target="_blank" rel="noopener">WSPRnet</a>. Free, noncommercial use only; raw reports may contain errors.',
+  },
+  {
+    key: 'psk-reporter',
+    html: 'Live 2 m reception reports: <a href="https://pskreporter.info/" target="_blank" rel="noopener">PSK Reporter (Philip Gladstone, N1DQ)</a> via <a href="https://www.mqtt.pskreporter.info/" target="_blank" rel="noopener">Tom M0LTE’s public MQTT service</a>.',
+  },
+  {
     key: 'chester-county-ems',
-    html: '<a href="https://www.chesco.org/3963/WebCad-Active-Incidents" target="_blank" rel="noopener">Chester County DES WebCAD</a> · Approximate street positions derived from © Chester County GIS Road Centerlines and Site Address Points (<a href="https://creativecommons.org/licenses/by-nc-sa/3.0/" target="_blank" rel="noopener">CC BY-NC-SA 3.0</a>; runtime only) · Named places: <a href="https://services.arcgis.com/G4S1dGvn7PIgYd6Y/arcgis/rest/services/Common_Place/FeatureServer/1" target="_blank" rel="noopener">© Chester County GIS Common Place</a> (county terms)',
+    html: '<a href="https://www.chesco.org/3963/WebCad-Active-Incidents" target="_blank" rel="noopener">Chester County DES WebCAD</a> · <a href="https://www.montgomerycountypa.gov/departments/department-public-safety/webcad-active-incidents" target="_blank" rel="noopener">© Montgomery County, PA WebCAD / public CAD map</a> · <a href="https://www.lcwc911.us/live-incident-list" target="_blank" rel="noopener">© Lancaster County / LCWC public list and map</a> · <a href="https://delcodispat.ch/d/pa/delco" target="_blank" rel="noopener">Delco Dispatch (community paging; active status unknown)</a> · <a href="https://dpswebcad.dauphincounty.gov/webcad/" target="_blank" rel="noopener">Dauphin County WebCAD</a> · <a href="https://webcad.pikepa.org/pages/public/FeedReader.asp" target="_blank" rel="noopener">Pike County public completed reports</a> · <a href="https://ycdes.org/webcad/default.aspx" target="_blank" rel="noopener">York County DES</a> · <a href="https://incidents.adamscountypa.gov/" target="_blank" rel="noopener">Adams County active calls</a> · <a href="https://717alerts.com/county/lebanon" target="_blank" rel="noopener">Lebanon DES pager via 717 Alerts (community summaries)</a> · Approximate street positions derived from © Chester County GIS Road Centerlines and Site Address Points (<a href="https://creativecommons.org/licenses/by-nc-sa/3.0/" target="_blank" rel="noopener">CC BY-NC-SA 3.0</a>; runtime only) · Named places: <a href="https://services.arcgis.com/G4S1dGvn7PIgYd6Y/arcgis/rest/services/Common_Place/FeatureServer/1" target="_blank" rel="noopener">© Chester County GIS Common Place</a> (county terms)',
   },
   // ── Live sources ────────────────────────────────────────────────
   {
@@ -149,6 +157,13 @@ export const DATA_CREDITS = [
       'Space mission launch, payload &amp; recovery metadata: ' +
       '<a href="https://ll.thespacedevs.com/docs/" target="_blank" rel="noopener">Launch Library 2 — The Space Devs</a> ' +
       '(API documentation and rate limits)',
+  },
+  {
+    key: 'spacex-starship-live',
+    html:
+      'Live Starship telemetry: ' +
+      '<a href="https://www.spacex.com" target="_blank" rel="noopener">SpaceX public telemetry via stardash.live mirror</a> ' +
+      '(runtime only; no bundled data)',
   },
   {
     key: 'usgs',

@@ -2,10 +2,24 @@ import { selectionPopupPreference } from '../../data/selectionPopupPreference.js
 import { selectionMovesCamera } from '../../data/selectionCameraPolicy.js';
 import * as Cesium from 'cesium';
 import { msg, t } from '../../i18n/index.js';
+import { COUNTIES, countyFor, incidentSource } from './counties.js';
+import {
+  createCountyFilterPreferences,
+  INCIDENT_CATEGORIES,
+} from './filterPreferences.js';
 
 const ID = 'chester-county-ems';
+const UNIT_STATUS_CHECKED = msg(
+  'Unit status checked: {time} (America/New_York)',
+);
+const UNIT_STATUS_UPDATED = msg(
+  'Unit status updated: {time} (America/New_York)',
+);
+const ASSIGNMENTS_CHECKED = msg(
+  'Assignments checked: {time} (America/New_York)',
+);
 const SELECTED = `${ID}-selected`;
-const CATEGORIES = ['fire', 'ems', 'traffic'];
+const CATEGORIES = INCIDENT_CATEGORIES;
 const STYLES = {
   fire: {
     symbol: '🔥',
@@ -30,21 +44,7 @@ for (const style of Object.values(STYLES))
       `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#10202b" stroke="white" stroke-width="2"/>${style.path}</svg>`,
     );
 const styleFor = (row) => STYLES[row.category] || STYLES.ems;
-const detailLink = (row) => {
-  try {
-    const url = new URL(row.detailUrl);
-    return url.origin === 'https://webcad.chesco.org' &&
-      url.pathname === `/WebCad/livecadcomments-${row.category}.asp` &&
-      url.searchParams.get('incidentno') === row.incidentNumber &&
-      !url.username &&
-      !url.password &&
-      !url.hash
-      ? url.href
-      : null;
-  } catch {
-    return null;
-  }
-};
+const detailLink = incidentSource;
 // Like the S2 cards, keep source text readable within the canvas card width.
 const wrap = (value) =>
   String(value)
@@ -55,6 +55,7 @@ const wrap = (value) =>
 /** Display county incidents at approximate street intersections or address points. */
 export function createChesterCountyEmsLayer({
   source,
+  filterPreferences = createCountyFilterPreferences(),
   selectionPopups = selectionPopupPreference,
   overlayHost,
   openExternal,
@@ -69,9 +70,13 @@ export function createChesterCountyEmsLayer({
   let error = null;
   let selected = null;
   let popupUnsubscribe = null;
-  let categories = [...CATEGORIES];
+  let { categories, counties } = filterPreferences.get();
   const visibleRows = () =>
-    (snapshot?.rows || []).filter((row) => categories.includes(row.category));
+    (snapshot?.rows || []).filter(
+      (row) =>
+        categories.includes(row.category) &&
+        counties.includes(countyFor(row).id),
+    );
   let clickHandler, detailsRequest;
   let detail = null,
     detailsError = false;
@@ -171,11 +176,21 @@ export function createChesterCountyEmsLayer({
   };
   const position = (row) =>
     Cesium.Cartesian3.fromDegrees(row.mapPosition.lon, row.mapPosition.lat);
-  const stale = () =>
-    Boolean(
+  const stale = (row) => {
+    const feeds = snapshot?.countyFeeds;
+    if (feeds) {
+      const relevant = row
+        ? feeds.filter((feed) => feed.id === countyFor(row).id)
+        : feeds;
+      return Boolean(
+        error || relevant.some((feed) => feed.stale || feed.unavailable),
+      );
+    }
+    return Boolean(
       snapshot &&
       (error || snapshot.stale || Date.now() - snapshot.observedAt > 180000),
     );
+  };
 
   function render() {
     if (!dataSource || !enabled) return;
@@ -201,6 +216,35 @@ export function createChesterCountyEmsLayer({
     renderSelection();
     notify();
   }
+  const reportTime = (row) =>
+    t(
+      row.timeBasis === 'reported'
+        ? msg('Reported: {time} (America/New_York)')
+        : row.timeBasis === 'received'
+          ? row.timezoneAssumed
+            ? msg('Received: {time} (assumed America/New_York)')
+            : msg('Received: {time} (America/New_York)')
+          : msg('Dispatch: {time} (America/New_York)'),
+      { time: row.dispatched },
+    );
+  const reportNote = (row) =>
+    row.reportKind === 'completed'
+      ? t('Completed report; not an active incident')
+      : row.reportKind === 'dispatch'
+        ? t('Recent dispatch; active status unknown')
+        : '';
+  const publicFields = (row) =>
+    [
+      row.crossStreets
+        ? t('Cross streets: {location}', { location: row.crossStreets })
+        : '',
+      row.nearestIntersection
+        ? t('Nearest intersection: {location}', {
+            location: row.nearestIntersection,
+          })
+        : '',
+      row.box ? t('Box: {box}', { box: row.box }) : '',
+    ].filter(Boolean);
   function renderSelection() {
     overlayHost.clearSource(SELECTED);
     const row = visibleRows().find((row) => row.id === selected);
@@ -217,14 +261,27 @@ export function createChesterCountyEmsLayer({
           paintLane: 'selected',
           collisionGroup: 'ambient-card',
           priority: Number.MAX_SAFE_INTEGER,
-          title: `${styleFor(row).symbol} ${row.incidentNumber || row.id} · ${row.type}`,
+          title: `${styleFor(row).symbol} ${row.incidentNumber || t('Public report')} · ${row.type}`,
           details: [
-            ...wrap(t('Location: {location}', { location: row.location })),
+            t('County: {county}', { county: countyFor(row).name }),
+            ...(row.reportKind === 'dispatch'
+              ? [
+                  t('Recent dispatch; active status unknown'),
+                  t('Community source: {source}', { source: row.sourceName }),
+                ]
+              : []),
             ...wrap(
-              t('Municipality: {municipality}', {
-                municipality: row.municipality,
+              t('Location: {location}', {
+                location: row.location || t('Unknown'),
               }),
             ),
+            ...(row.municipality
+              ? wrap(
+                  t('Municipality: {municipality}', {
+                    municipality: row.municipality,
+                  }),
+                )
+              : []),
             ...(row.mapPosition.matchedLocation
               ? [
                   t('GIS match: {location}', {
@@ -232,23 +289,50 @@ export function createChesterCountyEmsLayer({
                   }),
                 ]
               : []),
-            t('Dispatch: {time} (America/New_York)', { time: row.dispatched }),
-            row.category === 'traffic'
-              ? t('Agency: {agency}', { agency: row.station })
-              : t('Station: {station}', { station: row.station }),
+            reportTime(row),
+            ...publicFields(row),
+            ...(row.reportKind === 'completed' ? [reportNote(row)] : []),
+            ...(row.station
+              ? [
+                  row.category === 'traffic' &&
+                  countyFor(row).id === 'chester-pa'
+                    ? t('Agency: {agency}', { agency: row.station })
+                    : t('Station: {station}', { station: row.station }),
+                ]
+              : []),
             ...(detailsRequest && !detail ? [t('Loading unit status...')] : []),
             ...(detail
               ? [
-                  t('Units: {count}', {
-                    count: new Set(detail.units.map((unit) => unit.unit)).size,
-                  }),
+                  t(
+                    detail.assignmentOnly
+                      ? msg('Published units: {count}')
+                      : msg('Units: {count}'),
+                    {
+                      count: new Set(detail.units.map((unit) => unit.unit))
+                        .size,
+                    },
+                  ),
+                  ...(detail.assignmentOnly
+                    ? [
+                        t(
+                          'Assigned units only; movement status and times are not published.',
+                        ),
+                      ]
+                    : []),
                   ...detail.units.slice(0, 8).flatMap((unit) =>
                     wrap(
-                      t('{unit} · {status} · {time}', {
-                        unit: unit.unit,
-                        status: unit.status,
-                        time: unit.entered,
-                      }),
+                      t(
+                        unit.entered
+                          ? msg('{unit} · {status} · {time}')
+                          : msg('{unit} · {status}'),
+                        {
+                          unit: unit.unit,
+                          status: detail.assignmentOnly
+                            ? t('Assigned')
+                            : unit.status,
+                          time: unit.entered,
+                        },
+                      ),
                     ),
                   ),
                   ...(detail.units.length > 8
@@ -258,13 +342,28 @@ export function createChesterCountyEmsLayer({
                         }),
                       ]
                     : []),
-                  ...(!detail.units.length ? [t('No public unit status')] : []),
-                  t('Unit status updated: {time} (America/New_York)', {
-                    time: new Date(detail.observedAt).toLocaleString(
-                      undefined,
-                      { timeZone: 'America/New_York' },
-                    ),
-                  }),
+                  ...(!detail.units.length
+                    ? [
+                        t(
+                          detail.assignmentOnly
+                            ? msg('No assigned units published')
+                            : msg('No public unit status'),
+                        ),
+                      ]
+                    : []),
+                  t(
+                    detail.assignmentOnly
+                      ? ASSIGNMENTS_CHECKED
+                      : detail.timestampBasis === 'retrieved'
+                        ? UNIT_STATUS_CHECKED
+                        : UNIT_STATUS_UPDATED,
+                    {
+                      time: new Date(detail.observedAt).toLocaleString(
+                        undefined,
+                        { timeZone: 'America/New_York' },
+                      ),
+                    },
+                  ),
                   ...(detail.stale || detailsError
                     ? [t('Unit status is stale')]
                     : []),
@@ -275,14 +374,14 @@ export function createChesterCountyEmsLayer({
             ...(detailLink(row) && openExternal
               ? [t('Open incident source ↗')]
               : []),
-            ...(stale() ? [t('Stale data')] : []),
+            ...(stale(row) ? [t('Stale data')] : []),
           ],
           accent: styleFor(row).color,
           interactive: Boolean(detailLink(row) && openExternal),
           ...(detailLink(row) && openExternal
             ? {
                 accessibilityLabel: t('Open the source for {title}', {
-                  title: row.incidentNumber || row.id,
+                  title: row.incidentNumber || t('Public report'),
                 }),
                 activate: () => {
                   openExternal(detailLink(row));
@@ -302,9 +401,9 @@ export function createChesterCountyEmsLayer({
   }
   const layer = {
     id: ID,
-    name: msg('Chester County, PA incidents'),
+    name: msg('County EMS'),
     icon: '✚',
-    source: 'Chester County DES / GIS',
+    source: 'PA county public safety / GIS',
     updateInterval: 60000,
     init(nextViewer) {
       viewer = nextViewer;
@@ -359,7 +458,7 @@ export function createChesterCountyEmsLayer({
       } catch {
         if (current.signal.aborted || request !== current || !enabled)
           return false;
-        error = msg('Chester County incidents unavailable');
+        error = msg('County incidents unavailable');
         renderSelection();
         notify();
         return false;
@@ -394,26 +493,28 @@ export function createChesterCountyEmsLayer({
     },
     getRowControls() {
       return {
-        chips: CATEGORIES.map((category) => ({
-          id: category,
-          label: t(
-            category === 'fire'
-              ? 'Fire'
-              : category === 'ems'
-                ? 'EMS'
-                : 'Police / traffic',
-          ),
-          title:
-            category === 'traffic'
-              ? t('Public WebCAD traffic reports')
-              : undefined,
-          active: categories.includes(category),
-          params: {
-            categories: categories.includes(category)
-              ? categories.filter((value) => value !== category)
-              : [...categories, category],
-          },
-        })),
+        chips: [
+          ...CATEGORIES.map((category) => ({
+            id: category,
+            label: t(
+              category === 'fire'
+                ? 'Fire'
+                : category === 'ems'
+                  ? 'EMS'
+                  : 'Traffic',
+            ),
+            title:
+              category === 'traffic'
+                ? t('Public WebCAD traffic reports')
+                : undefined,
+            active: categories.includes(category),
+            params: {
+              categories: categories.includes(category)
+                ? categories.filter((value) => value !== category)
+                : [...categories, category],
+            },
+          })),
+        ],
       };
     },
     setRowControlsListener(listener) {
@@ -422,44 +523,80 @@ export function createChesterCountyEmsLayer({
     getIncidentPanelState() {
       const allRows = snapshot?.rows || [];
       const rows = visibleRows();
+      const coverageNotes = [
+        ...(counties.includes('lebanon-pa')
+          ? [t('Lebanon: recent pager summaries; active status unknown.')]
+          : []),
+        ...(counties.includes('pike-pa')
+          ? [t('Pike: today’s completed reports only.')]
+          : []),
+        ...(counties.includes('delaware-pa')
+          ? [
+              t(
+                'Delco Dispatch: newest 20 pages within two hours; active status unknown.',
+              ),
+            ]
+          : []),
+      ];
       return {
         enabled,
         categories: [...categories],
+        counties: COUNTIES.map((county) => ({
+          id: county.id,
+          label: county.name,
+          active: counties.includes(county.id),
+          hint:
+            county.coverageKind === 'completed-reports'
+              ? t('Completed reports only')
+              : '',
+        })),
         total: allRows.length,
         chips: [
           {
             id: 'county',
-            label: t('View Chester County'),
+            label: t('View counties'),
             onClick: () =>
               viewer?.camera.flyTo({
                 destination: Cesium.Cartesian3.fromDegrees(
-                  -75.75,
-                  40.0,
-                  100000,
+                  -76.05,
+                  40.55,
+                  350000,
                 ),
               }),
           },
-          {
-            id: 'source',
-            label: t('County WebCAD'),
-            onClick: () =>
-              globalThis.open(
-                'https://www.chesco.org/3963/WebCad-Active-Incidents',
-                '_blank',
-                'noopener,noreferrer',
-              ),
-          },
+        ],
+        feedInfo: [
+          ...(snapshot?.countyFeeds || []).map((feed) =>
+            feed.unavailable
+              ? t('{county}: unavailable', { county: feed.county })
+              : t(
+                  feed.coverageKind === 'completed-reports'
+                    ? msg('{county}: {count} completed reports')
+                    : feed.coverageKind === 'recent-dispatches'
+                      ? msg('{county}: {count} recent dispatches')
+                      : msg('{county}: {count} incidents'),
+                  {
+                    county: feed.county,
+                    count: feed.count,
+                  },
+                ) +
+                ' · ' +
+                (feed.timestampBasis === 'retrieved'
+                  ? t('Checked')
+                  : t('Updated')) +
+                ': ' +
+                new Date(feed.observedAt).toLocaleString(undefined, {
+                  timeZone: 'America/New_York',
+                }) +
+                ' (America/New_York)' +
+                (feed.stale ? ' · ' + t('Stale data') : ''),
+          ),
+          ...coverageNotes,
         ],
         info: [
-          t(
-            'Chester County, Pennsylvania only. Street locations are approximate.',
-          ),
+          t('Supported Pennsylvania counties only. Locations are approximate.'),
 
-          snapshot
-            ? `${t('Updated')}: ${new Date(snapshot.observedAt).toLocaleString(undefined, { timeZone: 'America/New_York' })} (America/New_York)`
-            : error
-              ? ''
-              : t('Loading...'),
+          !snapshot && !error ? t('Loading...') : '',
           snapshot
             ? t('{matching} of {total} incidents', {
                 matching: rows.length,
@@ -479,21 +616,93 @@ export function createChesterCountyEmsLayer({
                 },
               )
             : '',
+
           error ? t(error) : '',
           stale() ? t('Stale data') : '',
-          snapshot && !allRows.length ? t('No active incidents') : '',
+          snapshot && !allRows.length ? t('No matching incidents') : '',
           snapshot && allRows.length && !rows.length
             ? t('No matching incidents')
             : '',
         ]
           .filter(Boolean)
           .join(' · '),
+        selection: (() => {
+          const row = rows.find((row) => row.id === selected);
+          if (!row || row.mapPosition) return null;
+          return {
+            title:
+              (row.incidentNumber || t('Public report')) + ' · ' + row.type,
+            lines: [
+              countyFor(row).name,
+              reportNote(row),
+              ...(row.reportKind === 'dispatch'
+                ? [t('Community source: {source}', { source: row.sourceName })]
+                : []),
+              row.location,
+              row.municipality,
+              reportTime(row),
+              ...publicFields(row),
+              row.locationStatus === 'not-published'
+                ? t('No published map location')
+                : row.locationStatus === 'unavailable'
+                  ? t('Location lookup failed')
+                  : t('No location match'),
+              ...(detailsRequest ? [t('Loading unit status...')] : []),
+              ...(detail
+                ? [
+                    detail.assignmentOnly
+                      ? t(
+                          'Assigned units only; movement status and times are not published.',
+                        )
+                      : '',
+                    ...detail.units.map((unit) =>
+                      [
+                        unit.unit,
+                        detail.assignmentOnly ? t('Assigned') : unit.status,
+                        unit.description,
+                        unit.entered,
+                      ]
+                        .filter(Boolean)
+                        .join(' · '),
+                    ),
+                    !detail.units.length
+                      ? t('No assigned units published')
+                      : '',
+                  ]
+                : []),
+              ...(detailsError ? [t('Unit status unavailable')] : []),
+              ...(stale(row) ? [t('Stale data')] : []),
+            ].filter(Boolean),
+          };
+        })(),
         list: {
-          ariaLabel: t('Chester County, PA incidents'),
+          ariaLabel: t('County EMS'),
           items: rows.map((row) => ({
             id: row.id,
-            lead: `${styleFor(row).symbol} ${row.incidentNumber || row.id} · ${row.type}`,
-            text: `${row.location} · ${row.municipality} · ${row.dispatched} (America/New_York) · ${row.category === 'traffic' ? t('Agency: {agency}', { agency: row.station }) : t('Station: {station}', { station: row.station })}${row.mapPosition ? '' : ` · ${row.locationStatus === 'unavailable' ? t('Location lookup failed') : t('No location match')}`}`,
+            lead: `${styleFor(row).symbol} ${row.incidentNumber || t('Public report')} · ${row.type}`,
+            text: [
+              reportNote(row),
+              countyFor(row).name,
+              row.location,
+              row.municipality,
+              reportTime(row),
+              ...publicFields(row),
+              row.station
+                ? row.category === 'traffic' &&
+                  countyFor(row).id === 'chester-pa'
+                  ? t('Agency: {agency}', { agency: row.station })
+                  : t('Station: {station}', { station: row.station })
+                : '',
+              row.mapPosition
+                ? ''
+                : row.locationStatus === 'not-published'
+                  ? t('No published map location')
+                  : row.locationStatus === 'unavailable'
+                    ? t('Location lookup failed')
+                    : t('No location match'),
+            ]
+              .filter(Boolean)
+              .join(' · '),
             active: selected === row.id,
             params: { selectedIncident: row.id },
           })),
@@ -501,7 +710,7 @@ export function createChesterCountyEmsLayer({
       };
     },
     getParams() {
-      return { categories: [...categories] };
+      return { categories: [...categories], counties: [...counties] };
     },
     /** Public, live selection details for the side inspector. */
     getInspectionInfo() {
@@ -509,29 +718,42 @@ export function createChesterCountyEmsLayer({
       return enabled && row
         ? {
             id: row.id,
-            label: `${row.incidentNumber || row.id} · ${row.type}`,
+            label: `${row.incidentNumber || t('Public report')} · ${row.type}`,
             latitude: row.mapPosition?.lat,
             longitude: row.mapPosition?.lon,
             properties: {
               ...row,
               mapPosition: undefined,
               units: detail?.units || [],
-              stale: stale(),
+              stale: stale(row),
               detailsLoading: Boolean(detailsRequest),
               detailsUnavailable: detailsError,
             },
           }
         : null;
     },
-    setParams(params) {
-      if (
-        Object.hasOwn(params, 'categories') &&
-        Array.isArray(params.categories) &&
-        params.categories.every((category) => CATEGORIES.includes(category))
-      ) {
-        categories = CATEGORIES.filter((category) =>
-          params.categories.includes(category),
-        );
+    setParams(params, { origin } = {}) {
+      let changed = false;
+      const filterChanges = {};
+      for (const [key, allowed] of [
+        ['categories', CATEGORIES],
+        ['counties', COUNTIES.map((county) => county.id)],
+      ]) {
+        if (
+          Object.hasOwn(params, key) &&
+          Array.isArray(params[key]) &&
+          params[key].every((value) => allowed.includes(value))
+        ) {
+          const values = allowed.filter((value) => params[key].includes(value));
+          if (key === 'categories') categories = values;
+          else counties = values;
+          filterChanges[key] = values;
+          changed = true;
+        }
+      }
+      if (changed) {
+        if (['user', 'voice', 'tool'].includes(origin))
+          filterPreferences.set(filterChanges);
         if (!visibleRows().some((row) => row.id === selected)) clearSelection();
         render();
       }

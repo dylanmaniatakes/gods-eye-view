@@ -1,5 +1,15 @@
 # God's Eye View Current State
 
+HF Propagation and VHF Propagation (2 m) are off-by-default observed path layers
+in Data Layers → Audio. HF independently filters 10/20/40/80/160 m from a bounded
+WSPR Live sample; VHF combines a WSPR 2 m seed with PSK Reporter's public live
+MQTT feed, which closes immediately on disable. Paths fade and expire after
+30 minutes; 2 m distance colours and the 300+ km filter show observed reach,
+without classifying ducting or predicting coverage. Clicking a path opens its
+public reception metadata in OBJECT DETAILS. Filters persist with fork tokens
+01/02; published fork tokens are unchanged. Sources, noncommercial WSPR terms,
+coverage limitations and validation are in [Radio propagation](RADIO-PROPAGATION.md).
+
 Single-click inspection opens OBJECT DETAILS in the right rail and refreshes the
 selected object's available public fields and live position without taking the
 camera. Panel text and controls receive their own pointer events rather than
@@ -2230,6 +2240,7 @@ retain their established behavior.
 
 ## Satellite and launch provider modules
 
+Starship Live reads the same-origin `/api/starship-live` proxy, which forwards SpaceX's public webcast telemetry feed and returns a bounded vehicle snapshot. The layer polls once per second, renders one rocket billboard per reported vehicle, maintains a short live trail and tracks the selected vehicle. The current public feed reports the ship; a booster marker appears automatically if SpaceX publishes a booster key. Clicking a vehicle selects it, opens the shared object-inspection panel, and shows live altitude, speed, heading and source metadata. When the feed omits speed, the proxy derives Stardash-compatible speed—mean-sphere horizontal distance plus altitude change—from consecutive live samples when available and otherwise from the current and next trajectory points; repeated one-second position snapshots cannot produce a bogus value. Altitude is displayed as metres below 1 km and kilometres at or above 1 km, and speed is displayed in km/h.
 `server/providers/space/` owns the CelesTrak TLE and Launch Library 2 Node
 proxies. Their routes, six-hour/15-minute caches, disk storage, stale fallback,
 request coalescing and optional LL2 server token retain existing behavior.
@@ -4270,28 +4281,30 @@ nearby place—always use station selection. Unqualified “turn on/start the ra
 requests use Play; a qualified Play-shaped tool call is normalized to Select so
 its criteria cannot be silently ignored.
 
-| Layer                  | Source                                                                                                                                                                                          | File                                                  | Proxy                                                    | Update Interval                                                                   |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Live Flights ✈️        | OpenSky Network; bounded adsb.lol regional fallback                                                                                                                                             | `src/data/flights.js`                                 | `/api/flights` (OAuth + fallback)                        | 30s                                                                               |
-| Military Flights 🎖️    | adsb.lol /v2/mil                                                                                                                                                                                | `src/data/militaryFlights.js`                         | `/api/military`                                       | 15s                                                                               |
-| Live AIS Vessels 🚢    | AISStream websocket                                                                                                                                                                             | `src/data/aisLiveVessels.js`                          | `/api/vessels`                                          | 60s (+800ms visibility pass)                                                      |
+| Layer                  | Source                                                                                  | File                                | Proxy                                                                       | Update Interval                                                                  |
+| ---------------------- | --------------------------------------------------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Live Flights ✈️        | OpenSky Network; bounded adsb.lol regional fallback                                     | `src/data/flights.js`               | `/api/flights` (OAuth + fallback)                                           | 30s                                                                              |
+| Military Flights 🎖️    | adsb.lol /v2/mil                                                                        | `src/data/militaryFlights.js`       | `/api/military`                                                             | 15s                                                                              |
+| Live AIS Vessels 🚢    | AISStream websocket                                                                     | `src/data/aisLiveVessels.js`        | `/api/vessels`                                                              | 60s (+800ms visibility pass)                                                     |
 | Mapped Installations ⌖ | OpenFreeMap military areas; optional configured Overpass names and Google Places search | `src/data/militaryInstallations.js` | OpenFreeMap tiles, `/api/military-installations`, `/api/google/text-search` | viewport-driven; transient errors back off, missing capability switches to tiles |
-| Earthquakes            | USGS                                                                                                                                                                                            | `src/data/earthquakes.js`                             | —                                                        | 60s                                                                               |
-| Air quality            | ECCC MSC GeoMet OGC API (AQHI, Canada only)                                                                                                                                                      | `src/layers/airQuality/`                              | —                                                        | 20 min readings, 12 h station catalog                                             |
-| Satellites             | CelesTrak                                                                                                                                                                                       | `src/data/satellites.js`                              | `/api/celestrak`                                         | 120s                                                                              |
-| Space Missions (30d)   | Launch Library 2 + CelesTrak                                                                                                                                                                    | `src/data/rocketLaunches.js`                          | `/api/launches` + `/api/celestrak/active`                | 5 min                                                                             |
+| Earthquakes            | USGS                                                                                    | `src/data/earthquakes.js`           | —                                                                           | 60s                                                                              |
+| Air quality            | ECCC MSC GeoMet OGC API (AQHI, Canada only)                                             | `src/layers/airQuality/`            | —                                                                           | 20 min readings, 12 h station catalog                                            |
+| Satellites             | CelesTrak                                                                               | `src/data/satellites.js`            | `/api/celestrak`                                                            | 120s                                                                             |
+| Space Missions (30d)   | Launch Library 2 + CelesTrak                                                            | `src/data/rocketLaunches.js`        | `/api/launches` + `/api/celestrak/active`                                   | 5 min                                                                            |
+
+| Starship Live | SpaceX public webcast telemetry | `src/layers/starshipLive/` | `/api/starship-live` | 1s |
 | Traffic | Selectable TomTom / OpenStreetMap / Hybrid roads; optional TomTom flow (BYOK) | `src/data/traffic.js` | browser-direct OpenFreeMap tiles; `/api/tomtom` for flow | viewport-driven; capped tile cache |
-| CCTV                   | Austin + Caltrans (CA) + TfL London + Ontario 511 + Fintraffic (FI) + DriveBC (BC) + TxDOT (TX) + Estonia (Tallinn, Tarktee) + Live Traffic NSW + Open Calgary Open Data + Statens vegvesen (NO, stills + live HLS, Kartverket ground heights) + King County (WA) Open Data + WSDOT (WA) Open Data + NYC DOT TMC (opt-in) + City of Toronto RESCU + Catalonia (Servei Català de Trànsit) + Hong Kong Transport Department + FL511 (FL, opt-in) + Freeway Bureau, MOTC (Taiwan) + Houston TranStar (opt-in) + Autostrada del Brennero (IT, A22 stills) + Street View fallback | `src/data/cctv.js`                                    | `/api/cctv`                                              | 10s (active)                                                                      |
-| Radio                  | Radio Browser (public-domain station directory)                                                                                                                                                 | `src/data/radio.js`                                   | `/api/radio/stations`, `/api/radio/click/:uuid`          | 45 min directory refresh                                                          |
-| Transit 🚌             | Operator GTFS-Realtime VehiclePositions (7 keyless regions, `src/data/transitFeeds.js`)                                                                                                         | `src/layers/transit/` via `src/app/layers/transit.js` | `/api/transit`                                           | 15s (poll + delayed playback)                                                     |
-| Bikeshare 🚲           | GBFS (Lyft + BCycle + Social Bicycles + PBSC incl. Bike Share Toronto, Bike Itaú (Brazil), Bicing (Barcelona) and seven other Spanish cities + Urban Sharing, Entur, JCDecaux (Lillestrøm, Valencia, Seville) + nextbike (AMBici))                                                                                                                                        | `src/data/bikeshare.js`                               | `/api/gbfs`                                              | 60s                                                                               |
-| Directions 🧭          | OSRM on FOSSGIS servers (OpenStreetMap)                                                                                                                                                         | `src/data/directions.js`                              | `/api/route` (`steps=1`)                                 | on placement / mode change                                                        |
-| Datacenters ▣          | OSM extract (bundled)                                                                                                                                                                           | `src/data/infrastructure.js`                          | —                                                        | static                                                                            |
-| Dams ▰                 | OpenInfraMap/OSM extract (bundled)                                                                                                                                                              | `src/data/infrastructure.js`                          | —                                                        | static                                                                            |
-| Submarine Cables ◠     | TeleGeography public map (bundled)                                                                                                                                                              | `src/data/telegeographySubmarineCables.js`            | —                                                        | static                                                                            |
-| FIRMS Active Fires ▲   | NASA FIRMS live (VIIRS ×3 NRT + MODIS NRT, trailing 24h)                                                                                                                                        | `src/data/firmsHeatmap.js`                            | `/api/firms` (`FIRMS_MAP_KEY`)                           | 10 min (proxy TTL 30 min)                                                         |
+| CCTV | Austin + Caltrans (CA) + TfL London + Ontario 511 + Fintraffic (FI) + DriveBC (BC) + TxDOT (TX) + Estonia (Tallinn, Tarktee) + Live Traffic NSW + Open Calgary Open Data + Statens vegvesen (NO, stills + live HLS, Kartverket ground heights) + King County (WA) Open Data + WSDOT (WA) Open Data + NYC DOT TMC (opt-in) + City of Toronto RESCU + Catalonia (Servei Català de Trànsit) + Hong Kong Transport Department + FL511 (FL, opt-in) + Freeway Bureau, MOTC (Taiwan) + Houston TranStar (opt-in) + Autostrada del Brennero (IT, A22 stills) + Street View fallback | `src/data/cctv.js` | `/api/cctv` | 10s (active) |
+| Radio | Radio Browser (public-domain station directory) | `src/data/radio.js` | `/api/radio/stations`, `/api/radio/click/:uuid` | 45 min directory refresh |
+| Transit 🚌 | Operator GTFS-Realtime VehiclePositions (7 keyless regions, `src/data/transitFeeds.js`) | `src/layers/transit/` via `src/app/layers/transit.js` | `/api/transit` | 15s (poll + delayed playback) |
+| Bikeshare 🚲 | GBFS (Lyft + BCycle + Social Bicycles + PBSC incl. Bike Share Toronto, Bike Itaú (Brazil), Bicing (Barcelona) and seven other Spanish cities + Urban Sharing, Entur, JCDecaux (Lillestrøm, Valencia, Seville) + nextbike (AMBici)) | `src/data/bikeshare.js` | `/api/gbfs` | 60s |
+| Directions 🧭 | OSRM on FOSSGIS servers (OpenStreetMap) | `src/data/directions.js` | `/api/route` (`steps=1`) | on placement / mode change |
+| Datacenters ▣ | OSM extract (bundled) | `src/data/infrastructure.js` | — | static |
+| Dams ▰ | OpenInfraMap/OSM extract (bundled) | `src/data/infrastructure.js` | — | static |
+| Submarine Cables ◠ | TeleGeography public map (bundled) | `src/data/telegeographySubmarineCables.js` | — | static |
+| FIRMS Active Fires ▲ | NASA FIRMS live (VIIRS ×3 NRT + MODIS NRT, trailing 24h) | `src/data/firmsHeatmap.js` | `/api/firms` (`FIRMS_MAP_KEY`) | 10 min (proxy TTL 30 min) |
 | Street Level 📷 | Mapillary street-level imagery (vector tiles, Graph API, MapillaryJS) | `src/layers/streetLevel/` via `src/app/layers/streetLevel.js` | `/api/mapillary/status`, `/api/mapillary/tiles/coverage/{z}/{x}/{y}` (`MAPILLARY_CLIENT_TOKEN`) | camera-driven (320 ms debounce, ≤9 tiles, server memory cache 24 h) |
-| Wind 🌬                 | NOAA GFS 10 m wind (keyless, 0.25°→1° grid; animated particles)                                                                                                                                 | `src/data/wind.js`                                    | `/api/wind`                                              | 1 h (forecast cycle)                                                              |
+| Wind 🌬 | NOAA GFS 10 m wind (keyless, 0.25°→1° grid; animated particles) | `src/data/wind.js` | `/api/wind` | 1 h (forecast cycle) |
 | GNSS Integrity 📡 (`gnss-integrity`) | adsb.lol point snapshot, low navigation accuracy binned per 0.5° cell (GEV NIC/NACp threshold + gpsjam.org formula and bands, keyless, ODbL) | `src/layers/gnss/` via `src/app/layers/gnss.js` | `/api/gnss-integrity` | camera-driven (600 ms debounce, minimum 2.5 s between reads) + 60s poll (server cache 60 s; 30 min rolling window) |
 | S2 GhostMaps 👻 (`s2-ghostmaps`) | S2 Underground's public GhostMaps repository on GitHub (KMZ intel products, keyless, CC BY-NC-SA 4.0) | `src/layers/ghostMaps/` via `src/app/layers/ghostMaps.js` | `/api/ghostmaps/catalog`, `/api/ghostmaps/events` (server-sent events), `/api/ghostmaps/file/{product}` | branch head checked every 15 s; new commits pushed to the page; 5 min catalog backstop |
 | Sea Marks ⚓ (`sea-marks`) | OpenSeaMap seamark raster tiles (keyless; CC BY-SA 2.0 tiles, OSM data ODbL) | `src/data/osmOverlays.js` | — (browser-direct tiles) | on view (Cesium tile requests; no polling) |
@@ -6985,11 +6998,12 @@ startup grace period and three consecutive failures before reporting unhealthy.
 This reports app HTTP availability, not individual provider health, and does not
 configure automatic restarts.
 
-## Chester County incidents
+## County EMS
 
-The Events group includes an off-by-default **Chester County, PA incidents**
-layer. It reads Fire, EMS and Traffic tables from public WebCAD through the
-`/api/chester-county-ems` endpoint every 60 seconds while enabled.
+The Events group includes an off-by-default **County EMS** layer covering Chester
+and Montgomery counties, Pennsylvania. It reads public Fire, EMS and Traffic
+reports through /api/county-ems. Chester refreshes at most every minute;
+Montgomery refreshes at most every two minutes while enabled.
 County road-centerline junctions resolve reported intersections; county address
 points resolve numbered addresses. Flame, red-cross and siren billboards identify fire, EMS and traffic.
 Only icons show by default; clicking an icon opens a labelled detail card, and
@@ -6998,7 +7012,7 @@ omitted; the layer-level GIS accuracy notice remains. Unresolved or ambiguous re
 without a marker or municipality-center fallback. Successful empty
 snapshots clear reports and failures retain last-good data marked stale.
 All sources load at runtime into memory, with bounded county GIS lookups and
-no incident archive. The layer id is `chester-county-ems` and share token `8` stores only enabled state. See `docs/CHESTER-COUNTY-EMS.md` for matching limits and source terms.
+no incident archive. The layer id is `chester-county-ems` and share token `8` stores only enabled state. See `docs/COUNTY-EMS.md` for matching limits and source terms.
 
 County incident health separates successful unmatched locations from GIS failures.
 Coverage counts expose mapped, unresolved and lookup-error totals; only actual
@@ -7023,7 +7037,7 @@ explicit unavailable result without discarding the report. Voice can toggle
 the layer through scoped Chesco/Chester County aliases. Its spatial analyst
 exclusion now directs the model to these tools rather than hiding the layer.
 
-The active Chester County report list now lives in its own **CHESCO INCIDENTS**
+The active Chester County report list now lives in its own **COUNTY EMS**
 right-side app alongside the other panels. Its launcher and panel are hidden
 while the data layer is off, and return when it is enabled. Data Layers keeps
 the normal visibility toggle/feed count and synchronized category filters. The
@@ -7031,12 +7045,58 @@ app shares the existing snapshot and selection lifecycle, with no additional req
 empty/stale/error feeds remain accessible while enabled. List selections still
 open the same map cards, and icon selections update the app's active row.
 
-The county app and Data Layers include synchronized Fire, EMS and Police/Traffic
+The county app and Data Layers include synchronized Fire, EMS and Traffic
 category toggles, all on by default. These filter map icons and the app list together, with matching/total
-counts and a distinct no-match state. Police/Traffic uses WebCAD's public Traffic
-table. Category changes use the cached snapshot, preserve full feed health/counts,
-and dismiss a selected report when its category is hidden. Filters are session
-state; the existing enabled-only share token and MCP full-feed queries persist.
+counts and a distinct no-match state. Traffic covers source traffic reports, not a complete police-call feed. Category changes use the cached snapshot, preserve full feed health/counts,
+and dismiss a selected report when its category is hidden. Filters are saved as browser-local preferences, including entirely unchecked
+groups, and restored when the layer is recreated. The existing enabled-only
+share token and MCP full-feed queries retain their behavior.
+
+County coverage uses checkboxes only in COUNTY EMS. The category filters stay
+synchronized between the app and Data Layers. Eight counties start enabled;
+Pike completed reports are opt-in. Rows/cards identify
+their county; Montgomery IDs are county-qualified. Montgomery joins its complete
+public HTML list to its published read-only CAD map by incident, location and
+municipality, preserving unmapped reports. Public unit fragments retain undated
+time text and label retrieval times as checks. Per-county caches and health
+prevent one outage from hiding the other's reports. Generic MCP/voice tools
+get_county_incidents and get_county_incident_details cover all supported sources; Chester tools,
+the legacy endpoint, internal layer ID and share token remain compatible.
+
+County EMS also supports Lancaster's official LCWC list/public map and Delaware's
+community Delco Dispatch paging source. County filters and generic AI schemas
+read the same nine-source registry. Lancaster retains unmatched public list rows;
+map matches require IsPublic=1, category/type, municipality, intersection and
+dispatch minute. Its cards identify assigned units without invented movement
+statuses/times or synthetic official incident numbers.
+
+Delco reads only the newest 20 public pages within two hours, merges duplicate
+incident/category pages, and labels every report as a recent dispatch with
+unknown active/closed status. It is not an official county active feed. Published
+coordinates remain approximate; received times disclose an Eastern-time
+assumption. Raw paging messages, notes, apartment details, radio metadata and
+private-flagged pages are excluded. Its per-county provenance exposes limited
+coverage, community origin and retrieval timestamps. Each adapter has bounded
+on-demand caching and independent stale/error recovery; neither polls while the
+layer is off unless an AI explicitly queries the feed. Existing Chester routes,
+tool names and share identity stay compatible.
+
+### County EMS expanded county coverage and app configuration
+
+County coverage is configured only through nine native checkboxes in the
+right-side app: Chester, Montgomery, Lancaster, Delaware, Dauphin, Pike, York,
+Adams and Lebanon (PA). Data Layers retains the master switch and synchronized
+Fire/EMS/Traffic chips; county chips and WebCAD/source buttons are removed.
+Pike starts unchecked and reads only today's completed public press reports.
+Delaware and Lebanon use recent community pager summaries with unknown active
+status, not official active lists. Lebanon uses the user-provided 717 Alerts
+alternate, filters resolved/redacted rows and omits EMS/municipality-centroid
+pins. Dauphin, Pike, York and Adams remain list-only when coordinates are not
+published; selection opens public fields/units in the app without a guessed
+camera target. Adams distinguishes healthy empty from failed monitoring.
+Combined and legacy MCP routes retain their scope, with per-source provenance,
+received/reported/dispatch times and completed/unknown-active labels preserved.
+See docs/COUNTY-EMS.md for source limits, terms and validation coverage.
 
 ## Selected map popups
 
@@ -7056,3 +7116,15 @@ numbers and checks remembered candidates. An unsupported schema can reject the
 entire Realtime token request before microphone acquisition. Regression coverage
 in `src/voice/actionSchemas.test.mjs` checks Unicode IDs without a JavaScript
 Unicode flag, malformed IDs, and the stricter execution-time guard.
+
+## County EMS filter persistence
+
+County coverage and Fire/EMS/Traffic selections now survive page reloads,
+app/browser restarts and device reboots in the same browser profile and origin.
+The layer loads validated preferences when constructed and saves only explicit
+user/voice/tool filter edits to gev:county-ems:filters:v1. Empty selections stay
+empty. Temporary scene/restore changes cannot overwrite unrelated saved groups;
+selected incidents and source data are never persisted. Blocked storage leaves
+session controls usable. Existing enabled-only share links remain compatible.
+The County EMS browser gate verifies mixed filters after a fresh document and
+all-unchecked filters after closing/relaunching the browser with the same profile.

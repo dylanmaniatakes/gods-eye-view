@@ -65,6 +65,7 @@
     "hls.js": "^1.7.3",
     "mapillary-js": "^4.1.2",
     "mgrs": "^2.1.0",
+    "mqtt": "5.16.1",
     "pbf": "^5.1.2",
     "pinia": "^2.3.1",
     "satellite.js": "^6.0.2",
@@ -292,6 +293,8 @@
     "./tools/panel": "./src/tools/panel.js",
     "./tools/services": "./src/tools/services.js",
     "./view": "./src/view/index.js",
-    "./agent/world-packet": "./src/agent/worldPacket.js"
+    "./agent/world-packet": "./src/agent/worldPacket.js",
+    "./layers/propagation": "./src/layers/propagation/index.js",
+    "./layers/propagation/source": "./src/layers/propagation/source.js"
   }
 }

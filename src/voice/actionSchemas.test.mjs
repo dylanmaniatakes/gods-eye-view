@@ -53,9 +53,10 @@ test('the complete Realtime tool payload pins the manifest-generated layer relea
     // Snow leaves the set_visual_style enum.
     // The Operator HUD layout leaves set_hud's layout enum.
     // The layer alias hint leaves out aliases the layer id already spells.
+    // Starship Live extends the generated layer enums and aliases.
     // Voice geometry and OSM Places combine with the fork's Chester County tools.
     // Area candidate patterns are portable to flag-free tool-schema validators.
-    '2b72e9346b622778489993a2ea3e92222f858e0a0c74da0ed1d49a1120926906',
+    'ffbdd8bbb7b0c9eedc3689297b6d9ab0207113b0b553b41df6dd383dbd92fe5b',
   );
 });
 

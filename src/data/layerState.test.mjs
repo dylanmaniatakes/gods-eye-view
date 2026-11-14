@@ -202,8 +202,8 @@ function encode(state) {
 
 test('production registry is exact, canonical, and rejects incomplete contracts', async () => {
   assert.equal(validateLayerStateRegistry(), true);
-  assert.equal(REGISTERED_LAYER_IDS.length, 37);
-  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 37);
+  assert.equal(REGISTERED_LAYER_IDS.length, 40);
+  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 40);
   assert.ok(REGISTERED_LAYER_IDS.includes('transit'));
   assert.deepEqual(REGISTERED_LAYER_IDS, [...REGISTERED_LAYER_IDS].sort());
   assert.deepEqual(LEGACY_LAYER_STATE_TOKENS, {
@@ -242,14 +242,14 @@ test('production registry is exact, canonical, and rejects incomplete contracts'
   for (const [id, token] of Object.entries(LEGACY_LAYER_STATE_TOKENS)) {
     assert.equal(LAYER_STATE_TOKEN_RESERVATIONS[id], token);
   }
-  assert.equal(nextLayerStateToken(), '01');
+  assert.equal(nextLayerStateToken(), '04');
   assert.equal(
     nextLayerStateToken({
       ...LAYER_STATE_TOKEN_RESERVATIONS,
-      alpha: '01',
-      bravo: '02',
+      alpha: '04',
+      bravo: '05',
     }),
-    '03',
+    '06',
   );
   // Boundary fixtures model the exhausted single-character namespace only.
   const digitsExhausted = Object.fromEntries(
@@ -307,8 +307,8 @@ test('production registry is exact, canonical, and rejects incomplete contracts'
   assert.equal(
     validateLayerStateAllocations(LAYER_STATE_TOKEN_RESERVATIONS, {
       ...LAYER_STATE_TOKEN_RESERVATIONS,
-      future: '01',
-      next: '02',
+      future: '04',
+      next: '05',
     }),
     true,
   );
@@ -316,9 +316,9 @@ test('production registry is exact, canonical, and rejects incomplete contracts'
     () =>
       validateLayerStateAllocations(LAYER_STATE_TOKEN_RESERVATIONS, {
         ...LAYER_STATE_TOKEN_RESERVATIONS,
-        future: '02',
+        future: '05',
       }),
-    /next free token 01/,
+    /next free token 04/,
   );
   const beforeLastDigit = Object.fromEntries(
     Object.entries(digitsExhausted).filter(([, token]) => token !== '9'),
@@ -342,10 +342,10 @@ test('production registry is exact, canonical, and rejects incomplete contracts'
   assert.throws(
     () =>
       validateLayerStateAllocations(
-        { ...LAYER_STATE_TOKEN_RESERVATIONS, merged: '01' },
-        { ...LAYER_STATE_TOKEN_RESERVATIONS, merged: '01', competing: '01' },
+        { ...LAYER_STATE_TOKEN_RESERVATIONS, merged: '04' },
+        { ...LAYER_STATE_TOKEN_RESERVATIONS, merged: '04', competing: '06' },
       ),
-    /next free token 02/,
+    /next free token 05/,
   );
   assert.throws(
     () => validateLayerStateAllocations({ future: '00' }, { future: '01' }),

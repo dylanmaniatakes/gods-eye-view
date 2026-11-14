@@ -1045,10 +1045,10 @@ test('the voice TOOL SCHEMA matches the pinned contract — the mission mapping 
   // Pistes extend the generated layer enums and alias hint; voice geometry
   // adds the analyst area scopes and the osm-places layer.
   // This fork also registers Chester County incidents and Esri Hybrid.
-  assert.equal(block.length, 31475, 'serialized tool schema length drifted');
+  assert.equal(block.length, 31480, 'serialized tool schema length drifted');
   assert.equal(
     crypto.createHash('sha256').update(block).digest('hex'),
-    '20e7be60d2e12109b604c10a777548c589a5de697d7b5d1f812c488defd79d49',
+    'be885df1e1f599c4ae1ffb46de037e5515971f7e44653e09becebb99342c49f7',
     'the first-run missions must ride EXISTING tools: no schema edit, no cache bust',
   );
   const instructions = fs.readFileSync(
