@@ -29,6 +29,7 @@ export const PANEL_RAIL_ITEMS = Object.freeze({
   },
   'cctv-panel': { icon: 'videocam', label: msg('CCTV') },
   'weather-panel': { icon: 'partly_cloudy_day', label: msg('WEATHER') },
+  'news-panel': { icon: 'public', label: msg('NEWS') },
   'recent-imagery-panel': {
     icon: 'satellite_alt',
     label: msg('RECENT IMAGERY'),

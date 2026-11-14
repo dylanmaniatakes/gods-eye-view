@@ -1,9 +1,10 @@
 import { resolveCatalogSources } from './sourceComposition.js';
 import { createWeatherClock } from '../layers/weather/clock.js';
+import { worldClock } from '../time/worldClock.js';
+import { NEWS_LAYER_ID } from '../layers/news/model.js';
 import { createWeatherLayer } from '../layers/weather/index.js';
-import { createCyclonesLayer } from '../layers/cyclones/index.js';
+import { createApplicationCyclones } from './layers/cyclones.js';
 import { createWindLayer } from '../layers/wind/index.js';
-import { createPropagationLayer } from '../layers/propagation/index.js';
 import { createLayerCatalog } from './catalog.js';
 import { LAYER_STATE_REGISTRY } from '../data/layerState.js';
 import { createMilitaryRegistry } from '../layers/aircraft/classification.js';
@@ -19,10 +20,10 @@ import { createApplicationDirections } from './layers/directions.js';
 import { createApplicationRecentImagery } from './layers/recentImagery.js';
 import { createApplicationOsmPlaces } from './layers/osmPlaces.js';
 import { createApplicationTransit } from './layers/transit.js';
+import { createApplicationRail } from './layers/rail.js';
 import { createApplicationInstallations } from './layers/militaryInstallations.js';
 import { createApplicationSatellites } from './layers/satellites.js';
 import { createApplicationLaunches } from './layers/rocketLaunches.js';
-import { createApplicationStarshipLive } from './layers/starshipLive.js';
 import { createApplicationAlpr } from './layers/alprCameras.js';
 import { createApplicationLocalAdsb } from './layers/localAdsb.js';
 import { createApplicationAwareness } from './layers/militaryAwareness.js';
@@ -33,7 +34,10 @@ import { createApplicationAirQuality } from './layers/airQuality.js';
 import { createApplicationFirePerimeters } from './layers/perimeters.js';
 import { createApplicationGnssIntegrity } from './layers/gnss.js';
 import { createApplicationGhostMaps } from './layers/ghostMaps.js';
+import { createApplicationShipwrecks } from './layers/shipwrecks.js';
 import { createApplicationDroneAirspace } from './layers/droneAirspace.js';
+import { createApplicationNews } from './layers/news.js';
+import { createApplicationWildlifeSightings } from './layers/wildlifeSightings.js';
 import { createApplicationCables } from './layers/submarineCables.js';
 import { createOsmOverlayLayers } from '../data/osmOverlays.js';
 import { createApplicationStreetLevel } from './layers/streetLevel.js';
@@ -68,6 +72,7 @@ export function createApplicationCatalog({
   signal,
   metadata = APPLICATION_LAYER_METADATA,
   vesselOptions,
+  newsOptions,
   resolveAsset,
   nepalBoundaryResolver,
   streetLevelProviders,
@@ -81,7 +86,7 @@ export function createApplicationCatalog({
   const sourceComposition = resolveCatalogSources(sources);
   sources = sourceComposition.sources;
   const militaryRegistry = createMilitaryRegistry();
-  const weatherClock = createWeatherClock();
+  const weatherClock = createWeatherClock({ world: worldClock });
   const dispose = () => {
     signal.removeEventListener('abort', dispose);
     militaryRegistry.dispose();
@@ -106,6 +111,8 @@ export function createApplicationCatalog({
     const vessels = createApplicationVessels({
       source: sources.vessels,
       options: vesselOptions,
+      displayParams: () => flights.getParams(),
+      ...(resolveAsset ? { resolveAsset } : {}),
     });
     const installations = createApplicationInstallations({
       surface,
@@ -144,8 +151,20 @@ export function createApplicationCatalog({
           windowMs: sources['gnss-integrity'].windowMs,
         }),
         createApplicationGhostMaps({ source: sources['s2-ghostmaps'] }),
+        createApplicationShipwrecks({ source: sources.shipwrecks }),
         createApplicationDroneAirspace({
           source: sources['drone-airspace'],
+        }),
+        // Ages, the window and the counts read the world clock: a host that
+        // follows it for the layer shows the news at the time on the timeline.
+        createApplicationNews({
+          now: worldClock.timeFor(NEWS_LAYER_ID),
+          ...newsOptions,
+          source: sources.news,
+        }),
+        createApplicationWildlifeSightings({
+          source: sources['wildlife-sightings'],
+          groundFloor: surface.groundFloor,
         }),
         createApplicationAlpr({ surface, source: sources.alpr }),
         createApplicationStreetLevel({
@@ -155,17 +174,16 @@ export function createApplicationCatalog({
         }),
         satellites,
         createApplicationLaunches({ source: sources.launches, satellites }),
-        createApplicationStarshipLive({ source: sources['starship-live'] }),
         createApplicationTraffic({ source: sources.traffic, surface }),
         cameras.general,
         cameras.penndot,
         createApplicationRadio({ surface, source: sources.radio }),
-        createPropagationLayer({ source: sources['hf-propagation'] }),
-        createPropagationLayer({
-          source: sources['vhf-propagation'],
-          vhf: true,
+        createApplicationTransit({
+          surface,
+          source: sources.transit,
+          displayParams: () => flights.getParams(),
+          ...(resolveAsset ? { resolveAsset } : {}),
         }),
-        createApplicationTransit({ surface, source: sources.transit }),
         createApplicationBikeshare({ source: sources.bikeshare }),
         createApplicationDirections({ source: sources.directions }),
         createApplicationRecentImagery({ source: sources['recent-imagery'] }),
@@ -194,10 +212,16 @@ export function createApplicationCatalog({
           id: 'weather-lightning',
           clock: weatherClock,
         }),
-        createCyclonesLayer({ feed: sources.cyclones }),
+        createApplicationCyclones({ feed: sources.cyclones }),
         ...createOsmOverlayLayers(),
         ...createInfrastructureLayers(localGeoJsonServices),
         createApplicationCables({ source: sources.cables }),
+        createApplicationRail({
+          surface,
+          source: sources.rail,
+          displayParams: () => flights.getParams(),
+          ...(resolveAsset ? { resolveAsset } : {}),
+        }),
         createApplicationFirms({
           surface,
           id: 'local-firms',

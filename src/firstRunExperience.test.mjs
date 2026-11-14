@@ -386,13 +386,8 @@ test('one ESC does one thing — a Cockpit utility disclosure stops later docume
   // they own the same contract: their capture handler is the only one that can
   // keep a later document listener (Cockpit exit, the launcher) off the key, and
   // only the immediate form does it.
-  const utilityEsc = ui.slice(
-    ui.indexOf('if (!displayOpen && !radioOpen) return;'),
-  );
-  const claim = utilityEsc.slice(
-    0,
-    utilityEsc.indexOf('setCockpitDisclosure(kind, false'),
-  );
+  const utilityEsc = ui.slice(ui.indexOf('if (!displayOpen && !radioOpen) return;'));
+  const claim = utilityEsc.slice(0, utilityEsc.indexOf('setCockpitDisclosure(kind, false'));
   assert.match(claim, /event\.preventDefault\(\);/);
   assert.match(claim, /event\.stopImmediatePropagation\(\);/);
   assert.doesNotMatch(
@@ -987,6 +982,7 @@ test('the voice TOOL SCHEMA matches the pinned contract — the mission mapping 
   // Canonical serialization pins every tool name, description, property and
   // ordering while allowing source formatting. Derived from the unchanged
   // release schema before formatting (the previous source-byte pin passed).
+  // show_street_level (street-level photos) is a later, separate tool.
   const legacyTools = structuredClone(GEV_REALTIME_TOOLS).filter(
     (tool) =>
       ![
@@ -994,6 +990,7 @@ test('the voice TOOL SCHEMA matches the pinned contract — the mission mapping 
         'resolve_area',
         'find_imagery',
         'osm_query',
+        'show_street_level',
       ].includes(tool.name),
   );
   const hudLayout = legacyTools.find((tool) => tool.name === 'set_hud')
@@ -1025,6 +1022,14 @@ test('the voice TOOL SCHEMA matches the pinned contract — the mission mapping 
     'noir',
   ]);
   visualStyle.enum = [...visualStyle.enum, 'snow'];
+  // Tilt to an angle adds pitchDeg and rewords direction; restore
+  // the legacy camera fields to keep the pin.
+  const camera = legacyTools.find((tool) => tool.name === 'move_camera')
+    .parameters.properties;
+  assert.equal(camera.pitchDeg.type, 'number');
+  delete camera.pitchDeg;
+  camera.direction.description =
+    'Required for pan/tilt/rotate; orbit/rotate_globe default right.';
   const block = JSON.stringify(legacyTools);
   // Re-derived for the voice layer manifest (generated layer enums, alias and
   // field hints), point-and-ask's pointer/referent arguments and the prompt
@@ -1044,11 +1049,11 @@ test('the voice TOOL SCHEMA matches the pinned contract — the mission mapping 
   // The Utilities panel adds one set_panel_open target; Sea Marks and Ski
   // Pistes extend the generated layer enums and alias hint; voice geometry
   // adds the analyst area scopes and the osm-places layer.
-  // This fork also registers Chester County incidents and Esri Hybrid.
-  assert.equal(block.length, 31480, 'serialized tool schema length drifted');
+  // control_cockpit states the own-layer entry rule (Contacts not required).
+  assert.equal(block.length, 31529, 'serialized tool schema length drifted');
   assert.equal(
     crypto.createHash('sha256').update(block).digest('hex'),
-    'be885df1e1f599c4ae1ffb46de037e5515971f7e44653e09becebb99342c49f7',
+    '3241554175a6ea24c791481e123e423e0a58f75fbe957273245e6adf9ed59317',
     'the first-run missions must ride EXISTING tools: no schema edit, no cache bust',
   );
   const instructions = fs.readFileSync(

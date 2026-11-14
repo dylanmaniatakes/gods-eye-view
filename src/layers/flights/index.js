@@ -11,6 +11,9 @@ import { createEvidence } from './evidence.js';
 import { createTesting } from './testing.js';
 import { createQueries } from './queries.js';
 import { createAircraftDisplayFilters } from '../aircraft/displayFilters.js';
+import { createClockFollow } from './clockFollow.js';
+import { createSnapshotTimeline } from '../../time/snapshotTimeline.js';
+import { worldClock } from '../../time/worldClock.js';
 /** Compose one civil-flight layer with application-owned scene services. */
 export function createCivilFlightLayer({
   source,
@@ -31,6 +34,7 @@ export function createCivilFlightLayer({
   parts.evidence = createEvidence(context);
   parts.testing = createTesting(context);
   parts.queries = createQueries(context);
+  parts.clockFollow = createClockFollow(context);
   const applySnapshot = createFlightSnapshotRenderer({
     flightState,
     records: flightState.records,
@@ -47,7 +51,11 @@ export function createCivilFlightLayer({
     feed: flightState.feed,
     getQuery: (viewer) =>
       parts.controller._flightQuery(viewer || flightState._viewer),
-    applySnapshot,
+    applySnapshot: (snapshot, viewer, options) => {
+      if (options?.replace) parts.clockFollow.resetMotion();
+      return applySnapshot(snapshot, viewer, options);
+    },
+    followsClock: () => flightState.timeline.active(),
     setSourceLabel: (source) => {
       layer.source = source;
     },
@@ -55,12 +63,25 @@ export function createCivilFlightLayer({
       parts.tracking._applyPendingTrackingRestore(),
   });
 
+  // Contacts follow the world clock while the source declares a timeline.
+  flightState.timeline = createSnapshotTimeline({
+    id: 'flights',
+    clock: worldClock,
+    source: () => flightState.feed._source,
+    load: (atMs, { signal, replace }) =>
+      parts.ingestion.methods.loadAt(atMs, { signal, replace }),
+    clear: () => parts.clockFollow.clear(),
+    resumeLive: () => {
+      layer.update(flightState._viewer).catch(() => {});
+    },
+  });
+
   Object.assign(
     layer,
     parts.queries.methods,
     parts.lifecycle.methods,
-    parts.ingestion.methods,
     parts.display.methods,
+    parts.ingestion.methods,
   );
   Object.defineProperty(layer, 'testing', { value: parts.testing });
   return layer;

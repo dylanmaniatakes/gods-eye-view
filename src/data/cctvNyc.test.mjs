@@ -8,6 +8,7 @@ import {
   nycCameraToSource,
 } from '../../server/providers/cctv/sources.js';
 import {
+  CCTV_SHARED_SOURCE_SLOTS,
   DEFAULT_NYC_MAX_SOURCES,
   NYC_CAMERAS_URL,
   NYC_GROUND_ELEVATION_M,
@@ -373,6 +374,10 @@ for (const [label, flag] of [
     );
   });
 }
+
+test('the shared catalog slots are not raised to make room for this pack', () => {
+  assert.equal(CCTV_SHARED_SOURCE_SLOTS, 4000);
+});
 
 test('NYC keeps its own default pack budget', () => {
   assert.equal(DEFAULT_NYC_MAX_SOURCES, 250);

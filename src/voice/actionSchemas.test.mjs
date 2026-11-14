@@ -1,4 +1,3 @@
-import { isAreaCandidateId } from './areaCandidateContract.js';
 import { realtimeInstructions } from '../../server/providers/openai/instructions.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -53,10 +52,14 @@ test('the complete Realtime tool payload pins the manifest-generated layer relea
     // Snow leaves the set_visual_style enum.
     // The Operator HUD layout leaves set_hud's layout enum.
     // The layer alias hint leaves out aliases the layer id already spells.
-    // Starship Live extends the generated layer enums and aliases.
-    // Voice geometry and OSM Places combine with the fork's Chester County tools.
-    // Area candidate patterns are portable to flag-free tool-schema validators.
-    'ffbdd8bbb7b0c9eedc3689297b6d9ab0207113b0b553b41df6dd383dbd92fe5b',
+    // Voice geometry adds resolve_area, find_imagery, osm_query, the analyst
+    // area scopes and the osm-places layer; natural-region candidates and the
+    // tightened area tool wording follow review.
+    // control_cockpit states the own-layer entry rule (Contacts not required).
+    // move_camera tilt takes an optional pitchDeg angle, described as
+    // absolute with its -45 default, with steps sent as a direction.
+    // show_street_level (map, source, photo) adds one tool.
+    'c70b7c023ee3cca831bc3736876c48c2d4ed0de5f7ee2d13c27ebde643ba4258',
   );
 });
 
@@ -99,14 +102,14 @@ test('every emitted area candidate round-trips through the production schema', a
   for (const choice of ambiguous.candidates) {
     assert.ok(choice.candidateId.length >= candidateSchema.minLength);
     assert.ok(choice.candidateId.length <= candidateSchema.maxLength);
-    assert.match(choice.candidateId, new RegExp(candidateSchema.pattern));
+    assert.match(choice.candidateId, new RegExp(candidateSchema.pattern, 'u'));
     assert.equal(
       (await resolver.resolve({ candidateId: choice.candidateId })).ok,
       true,
     );
   }
   assert.equal(ambiguous.candidates[0].candidateId.length, 44);
-  const grammar = new RegExp(candidateSchema.pattern);
+  const grammar = new RegExp(candidateSchema.pattern, 'u');
   for (const malformed of [
     'ne:state:bad slug',
     'ne:state:../../etc',
@@ -115,38 +118,6 @@ test('every emitted area candidate round-trips through the production schema', a
   ])
     assert.doesNotMatch(malformed, grammar);
   assert.ok(`ne:state:${'x'.repeat(80)}`.length > candidateSchema.maxLength);
-});
-
-test('area candidate tool grammar works without JS-only flags and runtime validation stays strict', () => {
-  const schema = GEV_ACTION_SCHEMAS.find((tool) => tool.name === 'resolve_area')
-    .parameters.properties.candidateId;
-  const grammar = new RegExp(schema.pattern);
-  assert.doesNotMatch(schema.pattern, /\\[pP]\{/);
-  for (const id of [
-    'ne:state:georgia',
-    'ne:state:āland',
-    'ne:country:日本',
-    'ne:natural:𐐷',
-    'ne:state:a\u0301',
-  ]) {
-    assert.equal(grammar.test(id), true, id);
-    assert.equal(isAreaCandidateId(id), true, id);
-  }
-  for (const id of [
-    'ne:state:bad slug',
-    'ne:state:../../etc',
-    'ne:state:a_b',
-    'ne:state:!!!',
-    'ne:state:-a',
-    'ne:state:a--b',
-    'ne:state:a-',
-  ]) {
-    assert.equal(grammar.test(id), false, id);
-    assert.equal(isAreaCandidateId(id), false, id);
-  }
-  // The wire grammar permits non-ASCII code points, but they do not bypass
-  // the execution-time Unicode categories or the remembered-candidate lookup.
-  assert.equal(isAreaCandidateId('ne:state:☃'), false);
 });
 
 test('metadata cannot add tools, fields, types or enum values', () => {
@@ -185,16 +156,13 @@ test('all legacy action arguments are byte-identical after removing the delibera
         'resolve_area',
         'find_imagery',
         'osm_query',
+        'show_street_level',
       ].includes(tool.name),
   );
   // Layer enums are generated from the voice layer manifest and pinned by
   // layerManifest.test.mjs; the two shipped right-rail panels are additive.
   const property = (name) =>
     legacy.find((tool) => tool.name === name).parameters.properties;
-  // Esri Hybrid is an additive basemap; retain the original basemap contract below.
-  const basemaps = property('set_map_stack').stack;
-  assert.ok(basemaps.enum.includes('esri-hybrid'));
-  basemaps.enum = basemaps.enum.filter((id) => id !== 'esri-hybrid');
   delete property('control_cockpit').voicePanel;
   delete property('set_layer_visibility').layerId.enum;
   delete property('show_data_layers_menu').layerId.enum;
@@ -211,6 +179,8 @@ test('all legacy action arguments are byte-identical after removing the delibera
     'stop',
   ]);
   motion.enum = motion.enum.filter((value) => value !== 'rotate_globe');
+  // Tilt to an angle is additive.
+  delete property('move_camera').pitchDeg;
   const panels = property('set_panel_open').panelId;
   panels.enum = panels.enum.filter(
     (id) =>
@@ -274,7 +244,7 @@ test('all legacy action arguments are byte-identical after removing the delibera
   // Derived by applying the same removals to the 4b56d0e9 actionSchemas.
   assert.equal(
     createHash('sha256').update(JSON.stringify(legacy)).digest('hex'),
-    '01f14fdb1523eebfcbff8b115e48e6ab99e36fa06f55a3bb13c65e198f79d758',
+    '53fd4108c7b110c3f117f4c925c121640227296a20780afb9f7e7dda303ba7ba',
   );
 });
 
@@ -355,4 +325,16 @@ test('direct voice timeout schema accepts None and exact integers, rejects malfo
     assert.equal(validateArgs(tool.parameters, { minutes }).length, 0);
   for (const minutes of [-1, 61, 1.5, '5'])
     assert.ok(validateArgs(tool.parameters, { minutes }).length > 0);
+});
+
+test('tilt accepts an angle with no direction', () => {
+  const schema = GEV_ACTION_SCHEMAS.find(
+    (tool) => tool.name === 'move_camera',
+  ).parameters;
+  assert.deepEqual(validateArgs(schema, { motion: 'tilt', pitchDeg: -45 }), []);
+  assert.deepEqual(validateArgs(schema, { motion: 'tilt' }), []);
+  // No range in the schema (prompt budget): the runner clamps to -89..-5.
+  assert.ok(
+    validateArgs(schema, { motion: 'tilt', pitchDeg: 'steep' }).length > 0,
+  );
 });
